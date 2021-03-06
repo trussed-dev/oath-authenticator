@@ -13,6 +13,9 @@ pub enum Tag {
     Key = 0x73,
     Challenge = 0x74,
     Response = 0x75,
+    /// Tag denots what follows is (digits, dynamically truncated HMAC digest)
+    ///
+    /// The client then further processes u32::from_be_bytes(truncated-digest)/10**digits.
     TruncatedResponse = 0x76,
     NoResponse = 0x77,
     Property = 0x78,

@@ -105,9 +105,8 @@ where
         assert!(class.channel() == Some(0));
 
         // parse Iso7816Command as PivCommand
-        info_now!("before command try_into");
         let command: Command = command.try_into()?;
-        info_now!("{:?}", &command);
+        info_now!("\n====\n{:?}\n====\n", &command);
 
         match command {
             Command::Select(select) => self.select(select),
@@ -115,6 +114,8 @@ where
             Command::Register(register) => self.register(register),
             Command::Calculate(calculate) => self.calculate(calculate),
             Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all),
+            Command::Delete(delete) => self.delete(delete),
+            Command::Reset => self.reset(),
             _ => Err(iso7816::Status::FunctionNotSupported),
 
         }
@@ -127,6 +128,106 @@ where
             .unwrap();
 
         Ok(Data::from(data))
+    }
+
+    fn secret_from_credential_filename<'a>(&mut self, filename: &'a [u8]) -> Option<ObjectHandle> {
+        let serialized_credential = try_syscall!(
+            self.trussed.read_file(Location::Internal, PathBuf::from(filename))
+        )
+            .ok()?
+            .data;
+
+        let credential: Credential = postcard_deserialize(serialized_credential.as_ref())
+            .ok()?;
+
+        Some(credential.secret)
+    }
+
+    fn load_credential<'a>(&mut self, label: &'a [u8]) -> Option<Credential<'a>> {
+        let filename = self.filename_for_label(label);
+
+        let serialized_credential = try_syscall!(
+            self.trussed.read_file(Location::Internal, filename)
+        )
+            .ok()?
+            .data;
+
+        let credential: Credential = postcard_deserialize(serialized_credential.as_ref())
+            .ok()?;
+
+        let credential = Credential { label, ..credential };
+
+        Some(credential)
+    }
+
+    fn reset(&mut self) -> Result {
+        let mut maybe_entry = syscall!(self.trussed.read_dir_first(
+            Location::Internal,
+            PathBuf::new(),
+            None
+        )).entry;
+
+        while let Some(ref entry) = maybe_entry {
+            let entry_pathbuf = PathBuf::from(entry.path());
+            let secret = match self.secret_from_credential_filename(entry.path().as_ref().as_bytes()) {
+                Some(secret) => secret,
+                None => continue,
+            };
+            if !syscall!(self.trussed.delete(secret)).success {
+                debug_now!("could not delete secret {:?}", secret);
+            } else {
+                debug_now!("deleted secret {:?}", secret);
+            }
+            if try_syscall!(self.trussed.remove_file(Location::Internal, PathBuf::from(entry.path()))).is_err() {
+                debug_now!("could not delete credential with filename {}", entry.path());
+            } else {
+                debug_now!("deleted credential with filename {}", &entry_pathbuf);
+            }
+
+            // onwards
+            // NB: at this point, the command cache for looping is reset (this should be fixed
+            // upstream in Trussed, but...)
+            // On the other hand, we already deleted the first credential, so we can just read the
+            // first remaining credential.
+            maybe_entry = syscall!(self.trussed.read_dir_first(
+                Location::Internal,
+                PathBuf::new(),
+                None,
+            )).entry;
+            debug_now!("is there more? {:?}", &maybe_entry);
+        }
+        Ok(Default::default())
+    }
+
+    fn delete(&mut self, delete: command::Delete<'_>) -> Result {
+        debug_now!("{:?}", delete);
+        // It seems tooling first lists all credentials, so the case of
+        // delete being called on a non-existing label hardly occurs.
+
+        // APDU: 00 A4 04 00 07 A0 00 00 05 27 21 01
+        // SW: 79 03 01 00 00 71 08 26 9F 14 54 3A 0E C7 AC 90 00
+        // APDU: 00 A1 00 00 00
+        // SW: 72 13 21 74 6F 74 70 2E 64 61 6E 68 65 72 73 61 6D 2E 63 6F 6D 72 07 21 79 75 62 69 63 6F 90 00
+
+        // APDU: 00 02 00 00 08 71 06 79 75 62 69 63 6F
+        // SW: 90 00
+
+        let label = &delete.label;
+        if let Some(credential) = self.load_credential(label) {
+            if !syscall!(self.trussed.delete(credential.secret)).success {
+                debug_now!("could not delete secret {:?}", credential.secret);
+            } else {
+                debug_now!("deleted secret {:?}", credential.secret);
+            }
+
+            let _filename = self.filename_for_label(label);
+            if try_syscall!(self.trussed.remove_file(Location::Internal, _filename)).is_err() {
+                debug_now!("could not delete credential with filename {}", &self.filename_for_label(label));
+            } else {
+                debug_now!("deleted credential with filename {}", &self.filename_for_label(label));
+            }
+        }
+        Ok(Default::default())
     }
 
     /// The YK5 can store a Grande Total of 32 OATH credentials.
@@ -190,6 +291,11 @@ where
 
     fn register(&mut self, register: command::Register<'_>) -> Result {
         info_now!("recv {:?}", &register);
+
+        // 0. ykman does not call delete before register, so we need to speculatively
+        // delete the credential (the credential file would be replaced, but we need
+        // to delete the secret key).
+        self.delete(command::Delete { label: register.credential.label }).ok();
 
         // 1. Store secret in Trussed
         let raw_key = register.credential.secret;
@@ -295,19 +401,7 @@ where
     fn calculate(&mut self, calculate: command::Calculate<'_>) -> Result {
         info_now!("recv {:?}", &calculate);
 
-        let filename = self.filename_for_label(&calculate.label);
-
-        let serialized_credential = try_syscall!(self.trussed.read_file(
-            Location::Internal,
-            filename,
-        ))
-            .map_err(|_| Status::NotFound)?
-            .data;
-
-        let credential: Credential = postcard_deserialize(serialized_credential.as_ref())
-            .map_err(|_| Status::NotFound)?;
-        debug!("found credential: {:?}", &credential);
-
+        let credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
 
         let truncated_digest = crate::calculate::calculate(
             &mut self.trussed,
