@@ -69,7 +69,27 @@ pub struct AnswerToSelect {
     // challenge: Option<[u8; 8]>,
 }
 
+#[derive(Clone, Copy, Encodable, Eq, PartialEq)]
+pub struct ChallengingAnswerToSelect {
+
+    #[tlv(simple = "0x79")] // Tag::Version
+    version: OathVersion,
+    #[tlv(simple = "0x71")] // Tag::Name
+    salt: [u8; 8],
+
+    // the following is listed as "locked" and "FIPS mode"
+    //
+    // NB: Current BER-TLV derive macro has limitation that it
+    // wants a tag. It should learn some kind of "suppress-tag-if-none".
+    // As we would like to send "nothing" when challeng is None,
+    // instead of '74 00', as with the tagged/Option derivation.
+    #[tlv(simple = "0x74")] // Tag::Challenge
+    challenge: [u8; 8],
+}
+
 impl AnswerToSelect {
+    /// The salt is stable and used in modified form as "device ID" in ykman.
+    /// It gets rotated on device reset.
     pub fn new(salt: [u8; 8]) -> Self {
         Self {
             version: Default::default(),
@@ -78,19 +98,27 @@ impl AnswerToSelect {
         }
     }
 
-    // pub fn with_challenge(self, challenge: [u8; 8]) -> Self {
-    //     Self {
-    //         version: self.version,
-    //         salt: self.salt,
-    //         challenge: Some(challenge),
-    //     }
-    // }
+    /// This challenge is only added when a password is set on the device.
+    ///
+    /// It is rotated each time SELECT is called.
+    pub fn with_challenge(self, challenge: [u8; 8]) -> ChallengingAnswerToSelect {
+        ChallengingAnswerToSelect {
+            version: self.version,
+            salt: self.salt,
+            challenge: challenge,
+        }
+    }
 }
 
 impl<T> Authenticator<T>
 where
-    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256 + client::Totp,
+    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
+    // const CREDENTIAL_DIRECTORY: &'static str = "cred";
+    fn credential_directory() -> PathBuf {
+        PathBuf::from("cred")
+    }
+
     pub fn new(trussed: T) -> Self {
         Self {
             state: Default::default(),
@@ -99,6 +127,42 @@ where
     }
 
     pub fn respond(&mut self, command: &iso7816::Command) -> Result {
+
+        let no_authorization_needed = self.state.persistent(&mut self.trussed, |_, state| !state.password_set());
+
+        // TODO: abstract out this idea to make it usable for all the PIV security indicators
+
+        let client_authorized_before = self.state.runtime.client_authorized;
+        self.state.runtime.client_newly_authorized = false;
+        if no_authorization_needed {
+            self.state.runtime.client_authorized = true;
+        }
+
+        debug_now!("inner respond, client_authorized {}", self.state.runtime.client_authorized);
+        let result = self.inner_respond(command);
+
+        // we want to clear the authorization flag *except* if it wasn't set before,
+        // but was set now.
+        // if !(!client_authorized_before && self.state.runtime.client_newly_authorized) {
+        // This is equivalent to the simpler formulation that stale authorization gets
+        // removed, unless refreshed during this round
+        if client_authorized_before || !self.state.runtime.client_newly_authorized {
+            self.state.runtime.client_authorized = false;
+        }
+        if self.state.runtime.client_newly_authorized {
+            self.state.runtime.client_authorized = true;
+        }
+
+        debug_now!("client_authorized_before {}, client_newly_authorized {}, client_authorized {}",
+            client_authorized_before,
+            self.state.runtime.client_newly_authorized,
+            self.state.runtime.client_authorized,
+        );
+        result
+
+    }
+
+    fn inner_respond(&mut self, command: &iso7816::Command) -> Result {
         let class = command.class();
         assert!(class.chain().last_or_only());
         assert!(class.secure_messaging().none());
@@ -108,6 +172,13 @@ where
         let command: Command = command.try_into()?;
         info_now!("\n====\n{:?}\n====\n", &command);
 
+        if !self.state.runtime.client_authorized {
+            match command {
+                Command::Select(_) => {}
+                Command::Validate(_) => {}
+                _ => return Err(Status::ConditionsOfUseNotSatisfied),
+            }
+        }
         match command {
             Command::Select(select) => self.select(select),
             Command::ListCredentials => self.list_credentials(),
@@ -116,16 +187,24 @@ where
             Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all),
             Command::Delete(delete) => self.delete(delete),
             Command::Reset => self.reset(),
-            _ => Err(iso7816::Status::FunctionNotSupported),
-
+            Command::Validate(validate) => self.validate(validate),
+            Command::SetPassword(set_password) => self.set_password(set_password),
+            Command::ClearPassword => self.clear_password(),
         }
     }
 
-    fn select(&mut self, _select: command::Select<'_>) -> Result {
-        let data = AnswerToSelect::new([1,2,3,4,1,2,3,4])
-            // .with_challenge([8,7,6,5,4,3,2,1])
-            .to_heapless_vec()
-            .unwrap();
+    pub fn select(&mut self, _select: command::Select<'_>) -> Result {
+        self.state.runtime.challenge =
+            syscall!(self.trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
+
+        let state = self.state.persistent(&mut self.trussed, |_, state| state.clone() );
+        let answer_to_select = AnswerToSelect::new(state.salt);
+
+        let data = if state.password_set() {
+            answer_to_select.with_challenge(self.state.runtime.challenge).to_heapless_vec()
+        } else {
+            answer_to_select.to_heapless_vec()
+        }.unwrap();
 
         Ok(Data::from(data))
     }
@@ -160,15 +239,17 @@ where
         Some(credential)
     }
 
-    fn reset(&mut self) -> Result {
+    pub fn reset(&mut self) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         let mut maybe_entry = syscall!(self.trussed.read_dir_first(
             Location::Internal,
-            PathBuf::new(),
+            Self::credential_directory(),
             None
         )).entry;
 
         while let Some(ref entry) = maybe_entry {
-            let entry_pathbuf = PathBuf::from(entry.path());
             let secret = match self.secret_from_credential_filename(entry.path().as_ref().as_bytes()) {
                 Some(secret) => secret,
                 None => continue,
@@ -181,7 +262,7 @@ where
             if try_syscall!(self.trussed.remove_file(Location::Internal, PathBuf::from(entry.path()))).is_err() {
                 debug_now!("could not delete credential with filename {}", entry.path());
             } else {
-                debug_now!("deleted credential with filename {}", &entry_pathbuf);
+                debug_now!("deleted credential with filename {}", &PathBuf::from(entry.path()));
             }
 
             // onwards
@@ -191,7 +272,7 @@ where
             // first remaining credential.
             maybe_entry = syscall!(self.trussed.read_dir_first(
                 Location::Internal,
-                PathBuf::new(),
+                Self::credential_directory(),
                 None,
             )).entry;
             debug_now!("is there more? {:?}", &maybe_entry);
@@ -199,7 +280,10 @@ where
         Ok(Default::default())
     }
 
-    fn delete(&mut self, delete: command::Delete<'_>) -> Result {
+    pub fn delete(&mut self, delete: command::Delete<'_>) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         debug_now!("{:?}", delete);
         // It seems tooling first lists all credentials, so the case of
         // delete being called on a non-existing label hardly occurs.
@@ -230,8 +314,11 @@ where
         Ok(Default::default())
     }
 
-    /// The YK5 can store a Grande Total of 32 OATH credentials.
-    fn list_credentials(&mut self) -> Result {
+    /// The YK5 can store a Grande Totale of 32 OATH credentials.
+    pub fn list_credentials(&mut self) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         info_now!("recv ListCredentials");
         // return Ok(Default::default());
         // 72 13 21
@@ -242,7 +329,7 @@ where
 
         let mut maybe_credential = syscall!(self.trussed.read_dir_files_first(
             Location::Internal,
-            PathBuf::new(),
+            Self::credential_directory(),
             None
         )).data;
 
@@ -289,7 +376,10 @@ where
         Ok(response)
     }
 
-    fn register(&mut self, register: command::Register<'_>) -> Result {
+    pub fn register(&mut self, register: command::Register<'_>) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         info_now!("recv {:?}", &register);
 
         // 0. ykman does not call delete before register, so we need to speculatively
@@ -300,8 +390,7 @@ where
         // 1. Store secret in Trussed
         let raw_key = register.credential.secret;
         let key_handle = syscall!(
-            self.trussed
-                .unsafe_inject_totp_key(raw_key, Location::Internal)
+            self.trussed.unsafe_inject_shared_key(raw_key, Location::Internal)
         ).key;
         info!("new key handle: {:?}", key_handle);
 
@@ -339,8 +428,11 @@ where
             hex_filename[2*i + 1] = LOOKUP[(value & 0xF) as usize];
         }
 
-        info_now!("filename: {}", core::str::from_utf8(&hex_filename).unwrap());
-        hex_filename.as_ref().into()
+        let filename = PathBuf::from(hex_filename.as_ref());
+        let mut path = Self::credential_directory();
+        path.push(&filename);
+        info_now!("filename: {}", path.as_str_ref_with_trailing_nul());
+        path
     }
 
     // 71 <- Tag::Name
@@ -358,10 +450,13 @@ where
     //       06  <- digits
     //       5A D0 A7 CA <- dynamically truncated HMAC
     // 90 00
-    fn calculate_all(&mut self, calculate_all: command::CalculateAll<'_>) -> Result {
+    pub fn calculate_all(&mut self, calculate_all: command::CalculateAll<'_>) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         let mut maybe_credential = syscall!(self.trussed.read_dir_files_first(
             Location::Internal,
-            PathBuf::new(),
+            Self::credential_directory(),
             None
         )).data;
 
@@ -398,7 +493,10 @@ where
         Ok(response)
     }
 
-    fn calculate(&mut self, calculate: command::Calculate<'_>) -> Result {
+    pub fn calculate(&mut self, calculate: command::Calculate<'_>) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         info_now!("recv {:?}", &calculate);
 
         let credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
@@ -422,6 +520,177 @@ where
 
         Ok(response)
     }
+
+    pub fn validate(&mut self, validate: command::Validate<'_>) -> Result {
+        let command::Validate { response, challenge } = validate;
+
+        let password_set = self.state.persistent(&mut self.trussed, |_, state| state.password_set());
+        debug_now!("pw set: {}", password_set);
+
+        if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| state.authorization_key) {
+            debug_now!("key set: {:?}", key);
+
+            // 1. verify what the client sent (rotating challenge)
+            let verification = syscall!(self.trussed.sign_hmacsha1(key, &self.state.runtime.challenge)).signature;
+
+            self.state.runtime.challenge =
+                syscall!(self.trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
+
+            if verification != response {
+                return Err(Status::IncorrectDataParameter);
+            }
+
+            self.state.runtime.client_newly_authorized = true;
+
+            // 2. calculate our response to their challenge
+            let response = syscall!(self.trussed.sign_hmacsha1(key, challenge)).signature;
+
+            let mut data = Data::new();
+            data.push(0x75).ok();
+            data.push(20).ok();
+            data.extend_from_slice(&response).ok();
+            debug_now!("validated client! client_newly_authorized = {}", self.state.runtime.client_newly_authorized);
+            Ok(data)
+
+        } else {
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
+
+        // APDU: 00 A3 00 00 20 (AUTHENTICATE)
+        //       75 14
+        //             8C E0 33 83 E6 A9 0D 27 8B E7 D2 EF 9E 3B 1F DB F4 5E 91 35
+        //       74 08
+        //             AF C9 BA 64 22 6D F0 78
+        // SW: 75 14
+        //             87 BE EB AB 20 F4 C2 FA 24 EA 08 AB D3 4D C1 5B F0 51 DC 85
+        //     90 00
+        //
+
+        // pub response: &'l [u8; 20],
+        // pub challenge: &'l [u8; 8],
+
+    }
+
+    pub fn clear_password(&mut self) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
+        debug_now!("clearing password/key");
+        if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| {
+            let existing_key = state.authorization_key;
+            state.authorization_key = None;
+            existing_key
+        }) {
+            syscall!(self.trussed.delete(key));
+        }
+        Ok(Default::default())
+    }
+
+    pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
+        // when there is no password set:
+        // APDU: 00 A4 04 00 07 (SELECT)
+        //                      A0 00 00 05 27 21 01
+        // SW: 79 03
+        //           01 00 00
+        //     71 08
+        //           26 9F 14 54 3A 0E C7 AC
+        //     90 00
+        //
+        // APDU: 00 03 00 00 33 (SET PASSWORD)
+        //       73 11
+        //             21 83 93 58 A6 E1 A1 F6 AB 13 46 F6 5E 56 6F 26 8A
+        //       74 08
+        //             7D CB 79 D5 74 AA 68 6D
+        //       75 14
+        //             73 CA E7 96 6F 32 A8 49 9E B0 F9 D6 D0 3E AA 06 23 59 C6 F2
+        // SW: 90 00
+
+        // when there is a password previously set:
+        //
+        // APDU: 00 A4 04 00 07 (SELECT)
+        //                      A0 00 00 05 27 21 01
+        // SW: 79 03
+        //           01 00 00
+        //     71 08
+        //           26 9F 14 54 3A 0E C7 AC
+        //     74 08 (SALT, signals password is set)
+        //           13 FB E9 67 DF 91 BB 89
+        //     7B 01 (ALGORITHM, not sure what for)
+        //           21
+        //     90 00
+        //
+        // APDU: 00 A3 00 00 20 (AUTHENTICATE)
+        //       75 14
+        //             8C E0 33 83 E6 A9 0D 27 8B E7 D2 EF 9E 3B 1F DB F4 5E 91 35
+        //       74 08
+        //             AF C9 BA 64 22 6D F0 78
+        // SW: 75 14
+        //             87 BE EB AB 20 F4 C2 FA 24 EA 08 AB D3 4D C1 5B F0 51 DC 85
+        //     90 00
+        //
+        // APDU: 00 03 00 00 33 (SET PASSWORD)
+        //       73 11
+        //             21 83 93 58 A6 E1 A1 F6 AB 13 46 F6 5E 56 6F 26 8A
+        //       74 08
+        //             08 7A 1C 76 17 12 C7 9D
+        //       75 14
+        //             4F B0 29 1A 0E FC 88 46 FA 30 FF A4 C7 1E 51 A5 50 79 9A B8
+        // SW: 90 00
+
+        info_now!("entering set password");
+        if !self.state.runtime.client_authorized {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
+
+        let command::SetPassword { kind, algorithm, key, challenge, response } = set_password;
+
+        info_now!("just checking");
+        if kind != oath::Kind::Totp || algorithm != oath::Algorithm::Sha1 {
+            return Err(Status::InstructionNotSupportedOrInvalid);
+        }
+
+        info_now!("injecting the key");
+        let tmp_key = syscall!(self.trussed.unsafe_inject_shared_key(
+            key,
+            Location::Volatile,
+        )).key;
+
+        let verification = syscall!(self.trussed.sign_hmacsha1(tmp_key, challenge)).signature;
+        syscall!(self.trussed.delete(tmp_key));
+
+        // not really sure why this is all sent along, I guess some kind of fear of bitrot en-route?
+        if verification != response {
+            return Err(Status::IncorrectDataParameter);
+        }
+
+        // all-right, we have a new password to set
+        let key = syscall!(self.trussed.unsafe_inject_shared_key(
+            key,
+            Location::Internal,
+        )).key;
+
+        // self.state::persistent(trussed, |trussed, state| {
+        //     state.authorization_key = Some(key);
+        // });
+        debug_now!("storing password/key");
+        self.state.persistent(&mut self.trussed, |_, state| { state.authorization_key = Some(key) } );
+        debug_now!("checking it worked:");
+        let password_set = self.state.persistent(&mut self.trussed, |_, state| state.password_set());
+        debug_now!("pw set: {}", password_set);
+
+        // pub struct SetPassword<'l> {
+        //     pub kind: oath::Kind,
+        //     pub algorithm: oath::Algorithm,
+        //     pub key: &'l [u8],
+        //     pub challenge: &'l [u8],
+        //     pub response: &'l [u8],
+        // }
+        Ok(Default::default())
+    }
+
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -478,7 +747,7 @@ impl<T> applet::Aid for Authenticator<T> {
 #[cfg(feature = "applet")]
 impl<T> applet::Applet for Authenticator<T>
 where
-    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256 + client::Totp,
+    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
     fn select(&mut self, apdu: &iso7816::Command) -> applet::Result {
         Ok(applet::Response::Respond(self.respond(apdu).unwrap()))

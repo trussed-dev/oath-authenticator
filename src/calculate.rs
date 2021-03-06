@@ -13,7 +13,7 @@ use crate::oath;
 pub fn calculate<T>(trussed: &mut T, algorithm: oath::Algorithm, challenge: &[u8], key: trussed::types::ObjectHandle)
     -> [u8; 4]
 where
-    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256 + client::Totp,
+    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
     use oath::Algorithm::*;
     let truncated = match algorithm {
