@@ -9,6 +9,7 @@ extern crate hex_literal;
 
 pub mod authenticator;
 pub use authenticator::Authenticator;
+pub mod calculate;
 pub mod command;
 pub use command::Command;
 pub mod oath;

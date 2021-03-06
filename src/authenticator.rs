@@ -1,11 +1,15 @@
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryInto;
 
 #[cfg(feature = "applet")]
 use apdu_dispatch::applet;
 use flexiber::{Encodable, EncodableHeapless};
 use iso7816::response::{Data, Result, Status};
 use serde::{Deserialize, Serialize};
-use trussed::{client, syscall, try_syscall, types::{Location, ObjectHandle, PathBuf}};
+use trussed::{
+    client, syscall, try_syscall,
+    postcard_deserialize, postcard_serialize,
+    types::{Location, ObjectHandle, PathBuf},
+};
 
 use crate::{command, Command, oath, state::{CommandState, State}};
 
@@ -85,7 +89,7 @@ impl AnswerToSelect {
 
 impl<T> Authenticator<T>
 where
-    T: client::Client + client::Sha256 +client::Totp,
+    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256 + client::Totp,
 {
     pub fn new(trussed: T) -> Self {
         Self {
@@ -110,12 +114,13 @@ where
             Command::ListCredentials => self.list_credentials(),
             Command::Register(register) => self.register(register),
             Command::Calculate(calculate) => self.calculate(calculate),
+            Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all),
             _ => Err(iso7816::Status::FunctionNotSupported),
 
         }
     }
 
-    fn select(&mut self, select: command::Select<'_>) -> Result {
+    fn select(&mut self, _select: command::Select<'_>) -> Result {
         let data = AnswerToSelect::new([1,2,3,4,1,2,3,4])
             // .with_challenge([8,7,6,5,4,3,2,1])
             .to_heapless_vec()
@@ -143,14 +148,14 @@ where
         let mut response = Data::new();
         let mut file_index = 0;
         while let Some(serialized_credential) = maybe_credential {
-            info_now!("serialized credential: {}", hex_str!(&data));
+            info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // keep track, in case we need continuation
             file_index += 1;
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
 
             // deserialize
-            let credential: Credential = postcard::from_bytes(&serialized_credential).unwrap();
+            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
 
             // append data in form:
             // 72
@@ -202,7 +207,7 @@ where
 
         // 4. Serialize the credential
         let mut buf = [0u8; 256];
-        let serialized = postcard::to_slice(&credential, &mut buf).unwrap();
+        let serialized = postcard_serialize(&credential, &mut buf).unwrap();
         info_now!("storing serialized credential: {}", hex_str!(&serialized));
 
         // 5. Store it
@@ -232,6 +237,61 @@ where
         hex_filename.as_ref().into()
     }
 
+    // 71 <- Tag::Name
+    //    12
+    //       74 6F 74 70 2E 64 61 6E 68 65 72 73 61 6D 2E 63 6F 6D
+    // 76 <- Tag::TruncatedResponse
+    //    05
+    //       06 <- digits
+    //       75 F9 2B 37 <- dynamically truncated HMAC
+    // 71 <- Tag::Name
+    //    06
+    //       79 75 62 69 63 6F
+    // 76 <- Tag::TruncatedResponse
+    //    05
+    //       06  <- digits
+    //       5A D0 A7 CA <- dynamically truncated HMAC
+    // 90 00
+    fn calculate_all(&mut self, calculate_all: command::CalculateAll<'_>) -> Result {
+        let mut maybe_credential = syscall!(self.trussed.read_dir_files_first(
+            Location::Internal,
+            PathBuf::new(),
+            None
+        )).data;
+
+        let mut response = Data::new();
+        while let Some(serialized_credential) = maybe_credential {
+            info_now!("serialized credential: {}", hex_str!(&serialized_credential));
+
+            // deserialize
+            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
+
+            // calculate the value
+            let truncated_digest = crate::calculate::calculate(
+                &mut self.trussed,
+                credential.algorithm,
+                calculate_all.challenge,
+                credential.secret,
+            );
+
+            // add to response
+            response.push(0x71).unwrap();
+            response.push(credential.label.len() as u8).unwrap();
+            response.extend_from_slice(credential.label).unwrap();
+
+            response.push(0x76).unwrap();
+            response.push(5).unwrap();
+            response.push(credential.digits).unwrap();
+            response.extend_from_slice(&truncated_digest).unwrap();
+
+            // check if there's more
+            maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
+        }
+
+        // ran to completion
+        Ok(response)
+    }
+
     fn calculate(&mut self, calculate: command::Calculate<'_>) -> Result {
         info_now!("recv {:?}", &calculate);
 
@@ -244,35 +304,30 @@ where
             .map_err(|_| Status::NotFound)?
             .data;
 
-        // let credential: Credential = postcard::from_bytes(serialized_credential.as_ref())
-        //     .map_err(|_| anyhow::anyhow!("postcard deserialization error"))?;
-        // debug!("found credential: {:?}", &credential);
+        let credential: Credential = postcard_deserialize(serialized_credential.as_ref())
+            .map_err(|_| Status::NotFound)?;
+        debug!("found credential: {:?}", &credential);
 
-        // // 2. Calculate OTP
-        // let counter = *timestamp / credential.period_seconds;
 
-        // // // TODO: take this out of Trussed again, and implement "by hand" for posterity
-        // // let counter_bytes: [u8; 8] = counter.to_be_bytes();
-        // // let hmac = syscall!(self.trussed.sign(
-        // //     Mechanism::Totp,
-        // //     credential.handle,
-        // //     &counter_bytes,
-        // //     SignatureSerialization::Raw,
-        // // )).signature;
-        // // debug!("calculated HMAC: {}", hex_str!(&hmac, 4));
+        let truncated_digest = crate::calculate::calculate(
+            &mut self.trussed,
+            credential.algorithm,
+            calculate.challenge,
+            credential.secret,
+        );
 
-        // let otp = syscall!(self.trussed.sign_totp(
-        //     &credential.key_handle,
-        //     counter,
-        // )).signature;
+        let mut response = Data::new();
 
-        // try_syscall!(self.trussed.confirm_user_present(5_000))
-        //     .map_err(|_| anyhow::anyhow!("Could not obtain confirmation of user presence!"))?;
+        response.push(0x71).unwrap();
+        response.push(credential.label.len() as u8).unwrap();
+        response.extend_from_slice(credential.label).unwrap();
 
-        // let otp = u64::from_le_bytes(otp[..8].try_into().unwrap());
-        todo!();
+        response.push(0x76).unwrap();
+        response.push(credential.digits).unwrap();
+        response.extend_from_slice(&truncated_digest).unwrap();
+
+        Ok(response)
     }
-
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -329,7 +384,7 @@ impl<T> applet::Aid for Authenticator<T> {
 #[cfg(feature = "applet")]
 impl<T> applet::Applet for Authenticator<T>
 where
-    T: client::Client + client::Sha256 + client::Totp,
+    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256 + client::Totp,
 {
     fn select(&mut self, apdu: &iso7816::Command) -> applet::Result {
         Ok(applet::Response::Respond(self.respond(apdu).unwrap()))

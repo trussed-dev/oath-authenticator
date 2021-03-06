@@ -1,7 +1,6 @@
 use core::convert::{TryFrom, TryInto};
 
-use flexiber::Decodable;
-use iso7816::{command::Data, Instruction, Status};
+use iso7816::{command::Data, Status};
 
 use crate::oath;
 
@@ -46,9 +45,7 @@ pub struct SetPassword<'l> {
 
 impl<'l> TryFrom<&'l Data> for SetPassword<'l> {
     type Error = Status;
-    fn try_from(data: &'l Data) -> Result<Self, Self::Error> {
-        use flexiber::TaggedSlice;
-        let mut decoder = flexiber::Decoder::new(data);
+    fn try_from(_data: &'l Data) -> Result<Self, Self::Error> {
         // key = self.derive_key(password)
         // keydata = bytearray([OATH_TYPE.TOTP | ALGO.SHA1]) + key
         // challenge = os.urandom(8)
@@ -59,32 +56,35 @@ impl<'l> TryFrom<&'l Data> for SetPassword<'l> {
         //     TAG.RESPONSE, response)
         // self.send_apdu(INS.SET_CODE, 0, 0, data)
         // return key
+
         todo!();
 
-        let first: TaggedSlice = decoder.decode().unwrap();
-        assert!(first.tag() == (oath::Tag::Key as u8).try_into().unwrap());
-        let (key_header, key) = first.as_bytes().split_at(1);
-        let kind: oath::Kind = key_header[0].try_into()?;
-        assert!(kind == oath::Kind::Totp);
-        let algorithm: oath::Algorithm = key_header[0].try_into()?;
-        assert!(algorithm == oath::Algorithm::Sha1);
+        // use flexiber::TaggedSlice;
+        // let mut decoder = flexiber::Decoder::new(data);
+        // let first: TaggedSlice = decoder.decode().unwrap();
+        // assert!(first.tag() == (oath::Tag::Key as u8).try_into().unwrap());
+        // let (key_header, key) = first.as_bytes().split_at(1);
+        // let kind: oath::Kind = key_header[0].try_into()?;
+        // assert!(kind == oath::Kind::Totp);
+        // let algorithm: oath::Algorithm = key_header[0].try_into()?;
+        // assert!(algorithm == oath::Algorithm::Sha1);
 
-        let second: TaggedSlice = decoder.decode().unwrap();
-        assert!(second.tag() == (oath::Tag::Challenge as u8).try_into().unwrap());
-        let challenge = second.as_bytes();
-        assert_eq!(challenge.len(), 8);
+        // let second: TaggedSlice = decoder.decode().unwrap();
+        // assert!(second.tag() == (oath::Tag::Challenge as u8).try_into().unwrap());
+        // let challenge = second.as_bytes();
+        // assert_eq!(challenge.len(), 8);
 
-        let slice: TaggedSlice = decoder.decode().unwrap();
-        assert!(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap());
-        let response = slice.as_bytes();
-        assert_eq!(response.len(), 8);
+        // let slice: TaggedSlice = decoder.decode().unwrap();
+        // assert!(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap());
+        // let response = slice.as_bytes();
+        // assert_eq!(response.len(), 8);
 
-        Ok(SetPassword {
-            kind,
-            algorithm,
-            challenge,
-            response,
-        })
+        // Ok(SetPassword {
+        //     kind,
+        //     algorithm,
+        //     challenge,
+        //     response,
+        // })
     }
 }
 
@@ -225,17 +225,13 @@ impl<'a> flexiber::Decodable<'a> for Properties {
         let two_bytes: [u8; 2] = decoder.decode()?;
         let [tag, properties] = two_bytes;
         use flexiber::Tagged;
-        use flexiber::TagLike;
         assert_eq!(flexiber::Tag::try_from(tag).unwrap(), Self::tag());
         Ok(Properties(properties))
     }
 }
 impl flexiber::Tagged for Properties {
     fn tag() -> flexiber::Tag {
-        use flexiber::TagLike;
-        info_now!("someone is looking up our tag");
         let ret = flexiber::Tag::try_from(oath::Tag::Property as u8).unwrap();
-        info_now!("we're returning {:?}", &ret);
         ret
 
     }
