@@ -7,7 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# apdu-dispatch = { path = "../apdu-dispatch", optional = true }
+apdu-dispatch = { path = "../solo-bee/components/apdu-dispatch", optional = true }
+cbor-smol = "0.2.0"
 delog = "0.1.0"
 # flexiber = { path = "/home/nicolas/projects/flexiber", features = ["derive", "heapless"] }
 flexiber = { git = "https://github.com/nickray/flexiber", branch = "main", features = ["derive", "heapless"] }
@@ -16,6 +17,7 @@ heapless-bytes = "0.2"
 hex-literal = "0.3"
 interchange = "0.1"
 iso7816 = { path = "../solo-bee/components/iso7816" }
+postcard = "0.5.2"
 serde = { version = "1", default-features = false }
 trussed = { git = "https://github.com/trussed-dev/trussed", branch = "main" }
 # trussed = { path = "../../../trussed" }
@@ -26,8 +28,8 @@ untrusted = "0.7"
 # rand_core = { version = "0.5.1", features = ["getrandom"] }
 
 [features]
-default = []
-# applet = ["apdu-dispatch"]
+default = ["applet"]
+applet = ["apdu-dispatch"]
 
 log-all = []
 log-none = []

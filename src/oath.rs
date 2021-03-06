@@ -1,9 +1,12 @@
 use core::convert::TryFrom;
 
+use serde::{Deserialize, Serialize};
+
+
 pub const HMAC_MINIMUM_KEY_SIZE: usize = 14;
 
 #[repr(u8)]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Tag {
     Name = 0x71,
     NameList = 0x72,
@@ -20,7 +23,7 @@ pub enum Tag {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Algorithm {
     Sha1 = 0x01,
     Sha256 = 0x02,
@@ -41,7 +44,7 @@ impl TryFrom<u8> for Algorithm {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Kind {
     Hotp = 0x10,
     Totp = 0x20,
@@ -52,20 +55,24 @@ impl TryFrom<u8> for Kind {
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
         Ok(match byte & 0xf0 {
             0x10 => Kind::Hotp,
-            0x20 => Kind::Hotp,
+            0x20 => Kind::Totp,
             _ => return Err(Self::Error::IncorrectDataParameter),
         })
     }
 }
 
+pub fn combine(kind: Kind, algorithm: Algorithm) -> u8 {
+    kind as u8 | algorithm as u8
+}
+
 #[repr(u8)]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Properties {
     RequireTouch = 0x02,
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Instruction {
     Put = 0x01,
     Delete = 0x02,

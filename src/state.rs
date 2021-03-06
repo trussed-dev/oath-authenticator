@@ -12,5 +12,12 @@ pub struct State {
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Persistent {}
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CommandState {
+    ListCredentials(usize),
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Runtime {}
+pub struct Runtime {
+    pub previously: Option<CommandState>,
+}

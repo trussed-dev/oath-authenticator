@@ -1,4 +1,11 @@
-use hex_literal::hex;
+#![cfg_attr(not(test), no_std)]
+
+#[macro_use]
+extern crate delog;
+generate_macros!();
+
+#[macro_use(hex)]
+extern crate hex_literal;
 
 pub mod authenticator;
 pub use authenticator::Authenticator;

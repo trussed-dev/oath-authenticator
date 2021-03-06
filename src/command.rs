@@ -6,30 +6,37 @@ use iso7816::{command::Data, Instruction, Status};
 use crate::oath;
 
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Command<'l> {
     /// Select the application
-    ///
-    /// Resets security indicators if we are implicitly deselected.
     Select(Select<'l>),
+    /// Calculate the authentication data for a credential given by label.
     Calculate(Calculate<'l>),
+    /// Calculate the authentication data for all credentials.
     CalculateAll(CalculateAll<'l>),
+    /// Clear the password.
     ClearPassword,
+    /// Delete a credential.
     Delete(Delete<'l>),
-    List,
-    Put(Put<'l>),
+    /// List all credentials.
+    ListCredentials,
+    /// Register a new credential.
+    Register(Register<'l>),
+    /// Delete all credentials and rotate the salt.
     Reset,
+    /// Set a password.
     SetPassword(SetPassword<'l>),
+    /// Validate the password (both ways).
     Validate(Validate<'l>),
 }
 
 /// TODO: change into enum
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Select<'l> {
     pub aid: &'l [u8],
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SetPassword<'l> {
     kind: oath::Kind,
     algorithm: oath::Algorithm,
@@ -81,7 +88,7 @@ impl<'l> TryFrom<&'l Data> for SetPassword<'l> {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Validate<'l> {
     pub response: &'l [u8],
     pub challenge: &'l [u8],
@@ -105,7 +112,7 @@ impl<'l> TryFrom<&'l Data> for Validate<'l> {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Calculate<'l> {
     pub label: &'l [u8],
     pub challenge: &'l [u8],
@@ -129,7 +136,7 @@ impl<'l> TryFrom<&'l Data> for Calculate<'l> {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CalculateAll<'l> {
     pub challenge: &'l [u8],
 }
@@ -149,7 +156,7 @@ impl<'l> TryFrom<&'l Data> for CalculateAll<'l> {
 }
 
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Delete<'l> {
     pub label: &'l [u8],
 }
@@ -168,21 +175,29 @@ impl<'l> TryFrom<&'l Data> for Delete<'l> {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct Put<'l> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Register<'l> {
     pub credential: Credential<'l>,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Credential<'l> {
     pub label: &'l [u8],
     pub kind: oath::Kind,
     pub algorithm: oath::Algorithm,
     pub digits: u8,
-    /// What we get here is kind of weird!
-    /// If secret.len() < block size (64B for Sha1/Sha256, 128B for Sha512),
-    /// then it's the hash of the secret.
-    /// Otherwise, it's the secret, padded to length at least 14B with null bytes.
+    /// What we get here (inspecting the client app) may not be the raw K, but K' in HMAC lingo,
+    /// i.e., If secret.len() < block size (64B for Sha1/Sha256, 128B for Sha512),
+    /// then it's the hash of the secret.  Otherwise, it's the secret, padded to length
+    /// at least 14B with null bytes. This is of no concern to us, as is it does not
+    /// change the MAC.
+    ///
+    /// The 14 is a bit strange: RFC 4226, section 4 says:
+    /// "The algorithm MUST use a strong shared secret.  The length of the shared secret MUST be
+    /// at least 128 bits.  This document RECOMMENDs a shared secret length of 160 bits."
+    ///
+    /// Meanwhile, the client app just pads up to 14B :)
+
     pub secret: &'l [u8],
     pub touch_required: bool,
     pub counter: Option<u32>,
@@ -197,6 +212,7 @@ pub struct Credential<'l> {
 //     pub label: &'l [u8],
 // }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct Properties(u8);
 
 impl Properties {
@@ -210,25 +226,29 @@ impl<'a> flexiber::Decodable<'a> for Properties {
         let [tag, properties] = two_bytes;
         use flexiber::Tagged;
         use flexiber::TagLike;
-        assert_eq!(flexiber::SimpleTag::try_from(tag).unwrap().embedding(), Self::tag());
+        assert_eq!(flexiber::Tag::try_from(tag).unwrap(), Self::tag());
         Ok(Properties(properties))
     }
 }
 impl flexiber::Tagged for Properties {
     fn tag() -> flexiber::Tag {
         use flexiber::TagLike;
-        flexiber::SimpleTag::try_from(oath::Tag::Property as u8).unwrap().embedding()
+        info_now!("someone is looking up our tag");
+        let ret = flexiber::Tag::try_from(oath::Tag::Property as u8).unwrap();
+        info_now!("we're returning {:?}", &ret);
+        ret
+
     }
 }
 
-impl<'l> TryFrom<&'l Data> for Put<'l> {
+impl<'l> TryFrom<&'l Data> for Register<'l> {
     type Error = iso7816::Status;
     fn try_from(data: &'l Data) -> Result<Self, Self::Error> {
         use flexiber::{Decodable, TagLike};
         type TaggedSlice<'a> = flexiber::TaggedSlice<'a, flexiber::SimpleTag>;
         let mut decoder = flexiber::Decoder::new(data);
 
-        // first comes the label of the credential, with Tag;:Name
+        // first comes the label of the credential, with Tag::Name
         let first: TaggedSlice = decoder.decode().unwrap();
         assert!(first.tag() == (oath::Tag::Name as u8).try_into().unwrap());
         let label = first.as_bytes();
@@ -243,9 +263,13 @@ impl<'l> TryFrom<&'l Data> for Put<'l> {
         let digits = secret_header[1];
 
         let maybe_properties: Option<Properties> = decoder.decode().unwrap();
+        info_now!("maybe_properties: {:?}", &maybe_properties);
 
         let touch_required = maybe_properties
-            .map(|properties| properties.touch_required())
+            .map(|properties| {
+                info_now!("unraveling {:?}", &properties);
+                properties.touch_required()
+            })
             .unwrap_or(false);
 
         let mut counter = None;
@@ -268,7 +292,7 @@ impl<'l> TryFrom<&'l Data> for Put<'l> {
             counter,
         };
 
-        Ok(Put { credential })
+        Ok(Register { credential })
     }
 }
 
@@ -304,8 +328,8 @@ impl<'l> TryFrom<&'l iso7816::Command> for Command<'l> {
                 (0x00, oath::Instruction::Calculate, 0x00, 0x00) => Self::Calculate(Calculate::try_from(data)?),
                 (0x00, oath::Instruction::CalculateAll, 0x00, 0x01) => Self::CalculateAll(CalculateAll::try_from(data)?),
                 (0x00, oath::Instruction::Delete, 0x00, 0x00) => Self::Delete(Delete::try_from(data)?),
-                (0x00, oath::Instruction::List, 0x00, 0x00) => Self::List,
-                (0x00, oath::Instruction::Put, 0x00, 0x00) => Self::Put(Put::try_from(data)?),
+                (0x00, oath::Instruction::List, 0x00, 0x00) => Self::ListCredentials,
+                (0x00, oath::Instruction::Put, 0x00, 0x00) => Self::Register(Register::try_from(data)?),
                 (0x00, oath::Instruction::Reset, 0xde, 0xad) => Self::Reset,
                 (0x00, oath::Instruction::SetCode, 0x00, 0x00) => {
                     // should check this is a TLV(SetPassword, b'')
@@ -325,6 +349,7 @@ impl<'l> TryFrom<&'l iso7816::Command> for Command<'l> {
 impl<'l> TryFrom<&'l Data> for Select<'l> {
     type Error = Status;
     fn try_from(data: &'l Data) -> Result<Self, Self::Error> {
+        info_now!("comparing {} against {}", hex_str!(data.as_slice()), hex_str!(crate::YUBICO_OATH_AID));
         Ok(match data.as_slice() {
             crate::YUBICO_OATH_AID => Self { aid: data },
             _ => return Err(Status::NotFound),
