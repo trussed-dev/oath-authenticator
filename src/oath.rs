@@ -17,7 +17,7 @@ pub enum Tag {
     ///
     /// The client then further processes u32::from_be_bytes(truncated-digest)/10**digits.
     TruncatedResponse = 0x76,
-    NoResponse = 0x77,
+    Hotp = 0x77,
     Property = 0x78,
     Version = 0x79,
     InitialMovingFactor = 0x7a,

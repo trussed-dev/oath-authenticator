@@ -270,14 +270,21 @@ impl<'l> TryFrom<&'l Data> for Register<'l> {
             .unwrap_or(false);
 
         let mut counter = None;
-        if let Ok(last) = TaggedSlice::decode(&mut decoder) {
-            if last.tag() == (oath::Tag::InitialMovingFactor as u8).try_into().unwrap() {
-                let bytes = last.as_bytes();
-                if bytes.len() == 4 {
-                    counter = Some(u32::from_be_bytes(bytes.try_into().unwrap()))
+        // kind::Hotp and valid u32 starting counter should be more tightly tied together on a
+        // type level
+        if kind == oath::Kind::Hotp {
+            // when the counter is not specified or set to zero, ykman does not send it
+            counter = Some(0);
+            if let Ok(last) = TaggedSlice::decode(&mut decoder) {
+                if last.tag() == (oath::Tag::InitialMovingFactor as u8).try_into().unwrap() {
+                    let bytes = last.as_bytes();
+                    if bytes.len() == 4 {
+                        counter = Some(u32::from_be_bytes(bytes.try_into().unwrap()));
+                    }
                 }
             }
-        };
+            debug_now!("counter set to {:?}", &counter);
+        }
 
         let credential = Credential {
             label,
@@ -322,7 +329,7 @@ impl<'l> TryFrom<&'l iso7816::Command> for Command<'l> {
             let instruction: oath::Instruction = instruction_byte.try_into()?;
             Ok(match (class.into_inner(), instruction, p1, p2) {
                          // also 0xa4
-                (0x00, oath::Instruction::Calculate, 0x00, 0x00) => Self::Calculate(Calculate::try_from(data)?),
+                (0x00, oath::Instruction::Calculate, 0x00, 0x01) => Self::Calculate(Calculate::try_from(data)?),
                 (0x00, oath::Instruction::CalculateAll, 0x00, 0x01) => Self::CalculateAll(CalculateAll::try_from(data)?),
                 (0x00, oath::Instruction::Delete, 0x00, 0x00) => Self::Delete(Delete::try_from(data)?),
                 (0x00, oath::Instruction::List, 0x00, 0x00) => Self::ListCredentials,

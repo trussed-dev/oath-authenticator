@@ -7,7 +7,7 @@ use iso7816::response::{Data, Result, Status};
 use serde::{Deserialize, Serialize};
 use trussed::{
     client, syscall, try_syscall,
-    postcard_deserialize, postcard_serialize,
+    postcard_deserialize, postcard_serialize, postcard_serialize_bytes,
     types::{Location, ObjectHandle, PathBuf},
 };
 
@@ -467,23 +467,27 @@ where
             // deserialize
             let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
 
-            // calculate the value
-            let truncated_digest = crate::calculate::calculate(
-                &mut self.trussed,
-                credential.algorithm,
-                calculate_all.challenge,
-                credential.secret,
-            );
-
             // add to response
             response.push(0x71).unwrap();
             response.push(credential.label.len() as u8).unwrap();
             response.extend_from_slice(credential.label).unwrap();
 
-            response.push(0x76).unwrap();
-            response.push(5).unwrap();
-            response.push(credential.digits).unwrap();
-            response.extend_from_slice(&truncated_digest).unwrap();
+            // calculate the value
+            if credential.kind == oath::Kind::Totp {
+                let truncated_digest = crate::calculate::calculate(
+                    &mut self.trussed,
+                    credential.algorithm,
+                    calculate_all.challenge,
+                    credential.secret,
+                );
+                response.push(0x76).unwrap();
+                response.push(5).unwrap();
+                response.push(credential.digits).unwrap();
+                response.extend_from_slice(&truncated_digest).unwrap();
+            } else {
+                response.push(0x77).unwrap();
+                response.push(0).unwrap();
+            };
 
             // check if there's more
             maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
@@ -499,25 +503,59 @@ where
         }
         info_now!("recv {:?}", &calculate);
 
-        let credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
+        let mut credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
 
-        let truncated_digest = crate::calculate::calculate(
-            &mut self.trussed,
-            credential.algorithm,
-            calculate.challenge,
-            credential.secret,
-        );
+        let truncated_digest = match credential.kind {
+            oath::Kind::Totp => crate::calculate::calculate(
+                    &mut self.trussed,
+                    credential.algorithm,
+                    calculate.challenge,
+                    credential.secret,
+                ),
+            oath::Kind::Hotp => {
+                // load-bump counter
+                if let Some(counter) = credential.counter {
 
+                    credential.counter = Some(counter + 1);
+
+                    let filename = self.filename_for_label(credential.label);
+                    syscall!(self.trussed.write_file(
+                        Location::Internal,
+                        filename,
+                        postcard_serialize_bytes(&credential).unwrap(),
+                        None
+                    ));
+
+                    crate::calculate::calculate(
+                        &mut self.trussed,
+                        credential.algorithm,
+                        &counter.to_be_bytes(),
+                        credential.secret,
+                    )
+                } else {
+                    debug_now!("HOTP missing its counter");
+                    return Err(Status::UnspecifiedPersistentExecutionError);
+                }
+            }
+        };
+
+        // SW: 71 0F 36 30 2F 73 6F 6C 6F 6B 65 79 73 37 5F 36 30 76 05 07 3D 8E 94 CF 90 00
+        //
+        // correct:
+        // SW: 76 05 07 15 F9 B0 1F 90 00
+        //
+        // incorrect:
+        // SW: 76 05 07 60 D2 F2 7C 90 00
         let mut response = Data::new();
 
-        response.push(0x71).unwrap();
-        response.push(credential.label.len() as u8).unwrap();
-        response.extend_from_slice(credential.label).unwrap();
+        // response.push(0x71).unwrap();
+        // response.push(credential.label.len() as u8).unwrap();
+        // response.extend_from_slice(credential.label).unwrap();
 
         response.push(0x76).unwrap();
+        response.push(5).unwrap();
         response.push(credential.digits).unwrap();
         response.extend_from_slice(&truncated_digest).unwrap();
-
         Ok(response)
     }
 
