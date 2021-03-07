@@ -30,9 +30,17 @@ pub enum Command<'l> {
 }
 
 /// TODO: change into enum
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Select<'l> {
     pub aid: &'l [u8],
+}
+
+impl core::fmt::Debug for Select<'_> {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
+        fmt.debug_struct("Select")
+            .field("aid", &hex_str!(&self.aid, 5))
+            .finish()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -157,10 +165,19 @@ impl<'l> TryFrom<&'l Data> for CalculateAll<'l> {
 }
 
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Delete<'l> {
     pub label: &'l [u8],
 }
+
+impl core::fmt::Debug for Delete<'_> {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
+        fmt.debug_struct("Credential")
+            .field("label", &core::str::from_utf8(self.label).unwrap_or(&"invalid UTF8 label"))
+            .finish()
+    }
+}
+
 
 impl<'l> TryFrom<&'l Data> for Delete<'l> {
     type Error = iso7816::Status;
@@ -181,7 +198,7 @@ pub struct Register<'l> {
     pub credential: Credential<'l>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Credential<'l> {
     pub label: &'l [u8],
     pub kind: oath::Kind,
@@ -202,6 +219,20 @@ pub struct Credential<'l> {
     pub secret: &'l [u8],
     pub touch_required: bool,
     pub counter: Option<u32>,
+}
+
+impl core::fmt::Debug for Credential<'_> {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
+        fmt.debug_struct("Credential")
+            .field("label", &core::str::from_utf8(self.label).unwrap_or(&"invalid UTF8 label")) //(format!("{}", &hex_str!(&self.label))))
+            .field("kind", &self.kind)
+            .field("alg", &self.algorithm)
+            .field("digits", &self.digits)
+            .field("secret", &hex_str!(&self.secret, 4))
+            .field("touch", &self.touch_required)
+            .field("counter", &self.counter)
+            .finish()
+    }
 }
 
 // This is totally broken at the moment in flexiber
@@ -260,7 +291,7 @@ impl<'l> TryFrom<&'l Data> for Register<'l> {
         let digits = secret_header[1];
 
         let maybe_properties: Option<Properties> = decoder.decode().unwrap();
-        info_now!("maybe_properties: {:?}", &maybe_properties);
+        // info_now!("maybe_properties: {:?}", &maybe_properties);
 
         let touch_required = maybe_properties
             .map(|properties| {
@@ -353,7 +384,7 @@ impl<'l> TryFrom<&'l iso7816::Command> for Command<'l> {
 impl<'l> TryFrom<&'l Data> for Select<'l> {
     type Error = Status;
     fn try_from(data: &'l Data) -> Result<Self, Self::Error> {
-        info_now!("comparing {} against {}", hex_str!(data.as_slice()), hex_str!(crate::YUBICO_OATH_AID));
+        // info_now!("comparing {} against {}", hex_str!(data.as_slice()), hex_str!(crate::YUBICO_OATH_AID));
         Ok(match data.as_slice() {
             crate::YUBICO_OATH_AID => Self { aid: data },
             _ => return Err(Status::NotFound),

@@ -138,7 +138,7 @@ where
             self.state.runtime.client_authorized = true;
         }
 
-        debug_now!("inner respond, client_authorized {}", self.state.runtime.client_authorized);
+        // debug_now!("inner respond, client_authorized {}", self.state.runtime.client_authorized);
         let result = self.inner_respond(command);
 
         // we want to clear the authorization flag *except* if it wasn't set before,
@@ -153,11 +153,11 @@ where
             self.state.runtime.client_authorized = true;
         }
 
-        debug_now!("client_authorized_before {}, client_newly_authorized {}, client_authorized {}",
-            client_authorized_before,
-            self.state.runtime.client_newly_authorized,
-            self.state.runtime.client_authorized,
-        );
+        // debug_now!("client_authorized_before {}, client_newly_authorized {}, client_authorized {}",
+        //     client_authorized_before,
+        //     self.state.runtime.client_newly_authorized,
+        //     self.state.runtime.client_authorized,
+        // );
         result
 
     }
@@ -170,7 +170,8 @@ where
 
         // parse Iso7816Command as PivCommand
         let command: Command = command.try_into()?;
-        info_now!("\n====\n{:?}\n====\n", &command);
+        // info_now!("\n====\n{:?}\n====\n", &command);
+        info_now!("{:?}", &command);
 
         if !self.state.runtime.client_authorized {
             match command {
@@ -319,7 +320,7 @@ where
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
-        info_now!("recv ListCredentials");
+        // info_now!("recv ListCredentials");
         // return Ok(Default::default());
         // 72 13 21
         //          74 6F 74 70  2E 64 61 6E  68 65 72 73  61 6D 2E 63  6F 6D
@@ -336,7 +337,7 @@ where
         let mut response = Data::new();
         let mut file_index = 0;
         while let Some(serialized_credential) = maybe_credential {
-            info_now!("serialized credential: {}", hex_str!(&serialized_credential));
+            // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // keep track, in case we need continuation
             file_index += 1;
@@ -358,6 +359,9 @@ where
             // check if there's more
             maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
 
+            if file_index % 8 == 0 {
+                // TODO: split response
+            }
                 // get_data = _encode_extended_apdu(0, self._ins_send_remaining, 0, 0, b"")
             // else:
                 // raise TypeError("Invalid ApduFormat set")
@@ -380,7 +384,7 @@ where
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
-        info_now!("recv {:?}", &register);
+        // info_now!("recv {:?}", &register);
 
         // 0. ykman does not call delete before register, so we need to speculatively
         // delete the credential (the credential file would be replaced, but we need
@@ -392,7 +396,7 @@ where
         let key_handle = syscall!(
             self.trussed.unsafe_inject_shared_key(raw_key, Location::Internal)
         ).key;
-        info!("new key handle: {:?}", key_handle);
+        // info!("new key handle: {:?}", key_handle);
 
         // 2. Replace secret in credential with handle
         let credential = Credential::from(&register.credential, key_handle);
@@ -403,7 +407,7 @@ where
         // 4. Serialize the credential
         let mut buf = [0u8; 256];
         let serialized = postcard_serialize(&credential, &mut buf).unwrap();
-        info_now!("storing serialized credential: {}", hex_str!(&serialized));
+        // info_now!("storing serialized credential: {}", hex_str!(&serialized));
 
         // 5. Store it
         syscall!(self.trussed.write_file(
@@ -462,7 +466,7 @@ where
 
         let mut response = Data::new();
         while let Some(serialized_credential) = maybe_credential {
-            info_now!("serialized credential: {}", hex_str!(&serialized_credential));
+            // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // deserialize
             let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
@@ -501,7 +505,7 @@ where
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
-        info_now!("recv {:?}", &calculate);
+        // info_now!("recv {:?}", &calculate);
 
         let mut credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
 
@@ -561,9 +565,6 @@ where
 
     pub fn validate(&mut self, validate: command::Validate<'_>) -> Result {
         let command::Validate { response, challenge } = validate;
-
-        let password_set = self.state.persistent(&mut self.trussed, |_, state| state.password_set());
-        debug_now!("pw set: {}", password_set);
 
         if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| state.authorization_key) {
             debug_now!("key set: {:?}", key);
@@ -715,9 +716,6 @@ where
         // });
         debug_now!("storing password/key");
         self.state.persistent(&mut self.trussed, |_, state| { state.authorization_key = Some(key) } );
-        debug_now!("checking it worked:");
-        let password_set = self.state.persistent(&mut self.trussed, |_, state| state.password_set());
-        debug_now!("pw set: {}", password_set);
 
         // pub struct SetPassword<'l> {
         //     pub kind: oath::Kind,
@@ -753,6 +751,20 @@ pub struct Credential<'l> {
     pub touch_required: bool,
     pub counter: Option<u32>,
 }
+
+// impl core::fmt::Debug for Credential<'_> {
+//     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
+//         fmt.debug_struct("Credential")
+//             .field("label", core::str::from_utf8(self.credential).unwrap_or(&self.credential))
+//             .field("kind", &self.kind)
+//             .field("alg", &self.algorithm)
+//             .field("digits", &self.digits)
+//             .field("secret", &self.secret)
+//             .field("touch", &self.touch_required)
+//             .field("counter", &self.counter)
+//             .finish()
+//     }
+// }
 
 impl<'l> Credential<'l> {
     fn from(credential: &command::Credential<'l>, handle: ObjectHandle) -> Self {
