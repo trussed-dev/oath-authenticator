@@ -28,7 +28,7 @@ jobs:
         release: "9-2020-q2"
 
     - name: Build Documentation
-      run: cargo doc && scripts/make-toplevel-index.sh
+      run: cargo doc --no-default-features && scripts/make-toplevel-index.sh
 
     - name: Deploy Docs
       uses: peaceiris/actions-gh-pages@v3

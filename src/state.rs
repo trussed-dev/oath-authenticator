@@ -45,6 +45,12 @@ pub struct Runtime {
     pub client_newly_authorized: bool,
 }
 
+impl Runtime {
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
 impl Persistent {
     pub fn password_set(&self) -> bool {
         self.authorization_key.is_some()

@@ -177,6 +177,7 @@ where
             match command {
                 Command::Select(_) => {}
                 Command::Validate(_) => {}
+                Command::Reset => {}
                 _ => return Err(Status::ConditionsOfUseNotSatisfied),
             }
         }
@@ -210,19 +211,6 @@ where
         Ok(Data::from(data))
     }
 
-    fn secret_from_credential_filename<'a>(&mut self, filename: &'a [u8]) -> Option<ObjectHandle> {
-        let serialized_credential = try_syscall!(
-            self.trussed.read_file(Location::Internal, PathBuf::from(filename))
-        )
-            .ok()?
-            .data;
-
-        let credential: Credential = postcard_deserialize(serialized_credential.as_ref())
-            .ok()?;
-
-        Some(credential.secret)
-    }
-
     fn load_credential<'a>(&mut self, label: &'a [u8]) -> Option<Credential<'a>> {
         let filename = self.filename_for_label(label);
 
@@ -241,43 +229,23 @@ where
     }
 
     pub fn reset(&mut self) -> Result {
-        if !self.state.runtime.client_authorized {
-            return Err(Status::ConditionsOfUseNotSatisfied);
-        }
-        let mut maybe_entry = syscall!(self.trussed.read_dir_first(
-            Location::Internal,
-            Self::credential_directory(),
-            None
-        )).entry;
+        // Well. `ykman oath reset` does not check PIN.
+        // If you lost your PIN, you wouldn't be able to reset otherwise.
 
-        while let Some(ref entry) = maybe_entry {
-            let secret = match self.secret_from_credential_filename(entry.path().as_ref().as_bytes()) {
-                Some(secret) => secret,
-                None => continue,
-            };
-            if !syscall!(self.trussed.delete(secret)).success {
-                debug_now!("could not delete secret {:?}", secret);
-            } else {
-                debug_now!("deleted secret {:?}", secret);
-            }
-            if try_syscall!(self.trussed.remove_file(Location::Internal, PathBuf::from(entry.path()))).is_err() {
-                debug_now!("could not delete credential with filename {}", entry.path());
-            } else {
-                debug_now!("deleted credential with filename {}", &PathBuf::from(entry.path()));
-            }
+        // if !self.state.runtime.client_authorized {
+        //     return Err(Status::ConditionsOfUseNotSatisfied);
+        // }
 
-            // onwards
-            // NB: at this point, the command cache for looping is reset (this should be fixed
-            // upstream in Trussed, but...)
-            // On the other hand, we already deleted the first credential, so we can just read the
-            // first remaining credential.
-            maybe_entry = syscall!(self.trussed.read_dir_first(
-                Location::Internal,
-                Self::credential_directory(),
-                None,
-            )).entry;
-            debug_now!("is there more? {:?}", &maybe_entry);
-        }
+        debug_now!(":: reset - delete all keys");
+        syscall!(self.trussed.delete_all(Location::Internal));
+
+        debug_now!(":: reset - delete all files");
+        // NB: This deletes state.bin too, so it removes a possibly set password.
+        syscall!(self.trussed.remove_dir_all(Location::Internal, PathBuf::new()));
+
+        self.state.runtime.reset();
+
+        debug_now!(":: reset over");
         Ok(Default::default())
     }
 
