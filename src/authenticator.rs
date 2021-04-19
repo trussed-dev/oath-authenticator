@@ -1,16 +1,15 @@
 use core::convert::TryInto;
 
 #[cfg(feature = "applet")]
-use apdu_dispatch::applet;
+use apdu_dispatch::{applet, response};
 use flexiber::{Encodable, EncodableHeapless};
-use iso7816::response::{Data, Result, Status};
+use iso7816::Status;
 use serde::{Deserialize, Serialize};
 use trussed::{
     client, syscall, try_syscall,
     postcard_deserialize, postcard_serialize, postcard_serialize_bytes,
     types::{Location, ObjectHandle, PathBuf},
 };
-
 use crate::{command, Command, oath, state::{CommandState, State}};
 
 /// The TOTP authenticator Trussed® app.
@@ -126,7 +125,7 @@ where
         }
     }
 
-    pub fn respond(&mut self, command: &iso7816::Command) -> Result {
+    pub fn respond(&mut self, command: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
 
         let no_authorization_needed = self.state.persistent(&mut self.trussed, |_, state| !state.password_set());
 
@@ -139,7 +138,7 @@ where
         }
 
         // debug_now!("inner respond, client_authorized {}", self.state.runtime.client_authorized);
-        let result = self.inner_respond(command);
+        let result = self.inner_respond(command, reply);
 
         // we want to clear the authorization flag *except* if it wasn't set before,
         // but was set now.
@@ -162,7 +161,7 @@ where
 
     }
 
-    fn inner_respond(&mut self, command: &iso7816::Command) -> Result {
+    fn inner_respond(&mut self, command: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
         let class = command.class();
         assert!(class.chain().last_or_only());
         assert!(class.secure_messaging().none());
@@ -182,33 +181,34 @@ where
             }
         }
         match command {
-            Command::Select(select) => self.select(select),
-            Command::ListCredentials => self.list_credentials(),
+            Command::Select(select) => self.select(select, reply),
+            Command::ListCredentials => self.list_credentials(reply),
             Command::Register(register) => self.register(register),
-            Command::Calculate(calculate) => self.calculate(calculate),
-            Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all),
+            Command::Calculate(calculate) => self.calculate(calculate, reply),
+            Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all, reply),
             Command::Delete(delete) => self.delete(delete),
             Command::Reset => self.reset(),
-            Command::Validate(validate) => self.validate(validate),
+            Command::Validate(validate) => self.validate(validate, reply),
             Command::SetPassword(set_password) => self.set_password(set_password),
             Command::ClearPassword => self.clear_password(),
         }
     }
 
-    pub fn select(&mut self, _select: command::Select<'_>) -> Result {
+    pub fn select(&mut self, _select: command::Select<'_>, reply: &mut response::Data) -> applet::Result {
         self.state.runtime.challenge =
             syscall!(self.trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
 
         let state = self.state.persistent(&mut self.trussed, |_, state| state.clone() );
         let answer_to_select = AnswerToSelect::new(state.salt);
 
-        let data = if state.password_set() {
+        let data: heapless::Vec<u8,heapless::consts::U128> = if state.password_set() {
             answer_to_select.with_challenge(self.state.runtime.challenge).to_heapless_vec()
         } else {
             answer_to_select.to_heapless_vec()
         }.unwrap();
 
-        Ok(Data::from(data))
+        reply.extend_from_slice(&data).unwrap();
+        Ok(())
     }
 
     fn load_credential<'a>(&mut self, label: &'a [u8]) -> Option<Credential<'a>> {
@@ -228,7 +228,7 @@ where
         Some(credential)
     }
 
-    pub fn reset(&mut self) -> Result {
+    pub fn reset(&mut self) -> applet::Result {
         // Well. `ykman oath reset` does not check PIN.
         // If you lost your PIN, you wouldn't be able to reset otherwise.
 
@@ -246,10 +246,10 @@ where
         self.state.runtime.reset();
 
         debug_now!(":: reset over");
-        Ok(Default::default())
+        Ok(())
     }
 
-    pub fn delete(&mut self, delete: command::Delete<'_>) -> Result {
+    pub fn delete(&mut self, delete: command::Delete<'_>) -> applet::Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -284,7 +284,7 @@ where
     }
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
-    pub fn list_credentials(&mut self) -> Result {
+    pub fn list_credentials(&mut self, reply: &mut response::Data) -> applet::Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -302,7 +302,6 @@ where
             None
         )).data;
 
-        let mut response = Data::new();
         let mut file_index = 0;
         while let Some(serialized_credential) = maybe_credential {
             // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
@@ -319,10 +318,10 @@ where
             // len (= 1 + label.len())
             // kind | algorithm
             // label
-            response.push(0x72).unwrap();
-            response.push((credential.label.len() + 1) as u8).unwrap();
-            response.push(oath::combine(credential.kind, credential.algorithm)).unwrap();
-            response.extend_from_slice(credential.label).unwrap();
+            reply.push(0x72).unwrap();
+            reply.push((credential.label.len() + 1) as u8).unwrap();
+            reply.push(oath::combine(credential.kind, credential.algorithm)).unwrap();
+            reply.extend_from_slice(credential.label).unwrap();
 
             // check if there's more
             maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
@@ -345,10 +344,10 @@ where
         // ran to completion
         // todo: pack this cleanup in a closure?
         self.state.runtime.previously = None;
-        Ok(response)
+        Ok(())
     }
 
-    pub fn register(&mut self, register: command::Register<'_>) -> Result {
+    pub fn register(&mut self, register: command::Register<'_>) -> applet::Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -385,7 +384,7 @@ where
             None
         ));
 
-        Ok(Default::default())
+        Ok(())
     }
 
     fn filename_for_label(&mut self, label: &[u8]) -> trussed::types::PathBuf {
@@ -422,7 +421,7 @@ where
     //       06  <- digits
     //       5A D0 A7 CA <- dynamically truncated HMAC
     // 90 00
-    pub fn calculate_all(&mut self, calculate_all: command::CalculateAll<'_>) -> Result {
+    pub fn calculate_all(&mut self, calculate_all: command::CalculateAll<'_>, reply: &mut response::Data) -> applet::Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -432,7 +431,6 @@ where
             None
         )).data;
 
-        let mut response = Data::new();
         while let Some(serialized_credential) = maybe_credential {
             // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
@@ -440,9 +438,9 @@ where
             let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
 
             // add to response
-            response.push(0x71).unwrap();
-            response.push(credential.label.len() as u8).unwrap();
-            response.extend_from_slice(credential.label).unwrap();
+            reply.push(0x71).unwrap();
+            reply.push(credential.label.len() as u8).unwrap();
+            reply.extend_from_slice(credential.label).unwrap();
 
             // calculate the value
             if credential.kind == oath::Kind::Totp {
@@ -452,13 +450,13 @@ where
                     calculate_all.challenge,
                     credential.secret,
                 );
-                response.push(0x76).unwrap();
-                response.push(5).unwrap();
-                response.push(credential.digits).unwrap();
-                response.extend_from_slice(&truncated_digest).unwrap();
+                reply.push(0x76).unwrap();
+                reply.push(5).unwrap();
+                reply.push(credential.digits).unwrap();
+                reply.extend_from_slice(&truncated_digest).unwrap();
             } else {
-                response.push(0x77).unwrap();
-                response.push(0).unwrap();
+                reply.push(0x77).unwrap();
+                reply.push(0).unwrap();
             };
 
             // check if there's more
@@ -466,10 +464,10 @@ where
         }
 
         // ran to completion
-        Ok(response)
+        Ok(())
     }
 
-    pub fn calculate(&mut self, calculate: command::Calculate<'_>) -> Result {
+    pub fn calculate(&mut self, calculate: command::Calculate<'_>, reply: &mut response::Data) -> applet::Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -518,20 +516,19 @@ where
         //
         // incorrect:
         // SW: 76 05 07 60 D2 F2 7C 90 00
-        let mut response = Data::new();
 
         // response.push(0x71).unwrap();
         // response.push(credential.label.len() as u8).unwrap();
         // response.extend_from_slice(credential.label).unwrap();
 
-        response.push(0x76).unwrap();
-        response.push(5).unwrap();
-        response.push(credential.digits).unwrap();
-        response.extend_from_slice(&truncated_digest).unwrap();
-        Ok(response)
+        reply.push(0x76).unwrap();
+        reply.push(5).unwrap();
+        reply.push(credential.digits).unwrap();
+        reply.extend_from_slice(&truncated_digest).unwrap();
+        Ok(())
     }
 
-    pub fn validate(&mut self, validate: command::Validate<'_>) -> Result {
+    pub fn validate(&mut self, validate: command::Validate<'_>, reply: &mut response::Data) -> applet::Result {
         let command::Validate { response, challenge } = validate;
 
         if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| state.authorization_key) {
@@ -552,12 +549,11 @@ where
             // 2. calculate our response to their challenge
             let response = syscall!(self.trussed.sign_hmacsha1(key, challenge)).signature;
 
-            let mut data = Data::new();
-            data.push(0x75).ok();
-            data.push(20).ok();
-            data.extend_from_slice(&response).ok();
+            reply.push(0x75).ok();
+            reply.push(20).ok();
+            reply.extend_from_slice(&response).ok();
             debug_now!("validated client! client_newly_authorized = {}", self.state.runtime.client_newly_authorized);
-            Ok(data)
+            Ok(())
 
         } else {
             Err(Status::ConditionsOfUseNotSatisfied)
@@ -578,7 +574,7 @@ where
 
     }
 
-    pub fn clear_password(&mut self) -> Result {
+    pub fn clear_password(&mut self) -> applet::Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -590,10 +586,10 @@ where
         }) {
             syscall!(self.trussed.delete(key));
         }
-        Ok(Default::default())
+        Ok(())
     }
 
-    pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
+    pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> applet::Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -692,7 +688,7 @@ where
         //     pub challenge: &'l [u8],
         //     pub response: &'l [u8],
         // }
-        Ok(Default::default())
+        Ok(())
     }
 
 }
@@ -721,7 +717,7 @@ pub struct Credential<'l> {
 }
 
 // impl core::fmt::Debug for Credential<'_> {
-//     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
+//     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::applet::Result<(), core::fmt::Error> {
 //         fmt.debug_struct("Credential")
 //             .field("label", core::str::from_utf8(self.credential).unwrap_or(&self.credential))
 //             .field("kind", &self.kind)
@@ -767,13 +763,13 @@ impl<T> applet::Applet for Authenticator<T>
 where
     T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
-    fn select(&mut self, apdu: &iso7816::Command) -> applet::Result {
-        Ok(applet::Response::Respond(self.respond(apdu).unwrap()))
+    fn select(&mut self, apdu: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
+        self.respond(apdu, reply)
     }
 
     fn deselect(&mut self) { /*self.deselect()*/ }
 
-    fn call(&mut self, _type: applet::InterfaceType, apdu: &iso7816::Command) -> applet::Result {
-        self.respond(apdu).map(|data| applet::Response::Respond(data))
+    fn call(&mut self, _type: applet::InterfaceType, apdu: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
+        self.respond(apdu, reply)
     }
 }
