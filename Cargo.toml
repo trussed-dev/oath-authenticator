@@ -8,21 +8,20 @@ edition = "2018"
 
 [dependencies]
 apdu-dispatch = { path = "../solo-bee/components/apdu-dispatch", optional = true }
-delog = "0.1.0"
+delog = "0.1.2"
 # flexiber = { path = "/home/nicolas/projects/flexiber", features = ["derive", "heapless"] }
 flexiber = { git = "https://github.com/nickray/flexiber", branch = "main", features = ["derive", "heapless"] }
 heapless = "0.6"
 heapless-bytes = "0.2"
 hex-literal = "0.3"
-interchange = "0.1"
+interchange = "0.2"
 iso7816 = { path = "../solo-bee/components/iso7816" }
 serde = { version = "1", default-features = false }
 trussed = { git = "https://github.com/trussed-dev/trussed", branch = "main" }
 # trussed = { path = "../../../trussed" }
 
 [features]
-default = ["applet"]
-applet = ["apdu-dispatch"]
+default = ["apdu-dispatch"]
 
 log-all = []
 log-none = []

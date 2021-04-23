@@ -1,9 +1,8 @@
 use core::convert::TryInto;
 
-#[cfg(feature = "applet")]
-use apdu_dispatch::{applet, response};
 use flexiber::{Encodable, EncodableHeapless};
-use iso7816::Status;
+use heapless::ArrayLength;
+use iso7816::{Data, Status};
 use serde::{Deserialize, Serialize};
 use trussed::{
     client, syscall, try_syscall,
@@ -17,6 +16,8 @@ pub struct Authenticator<T> {
     state: State,
     trussed: T,
 }
+
+type Result = iso7816::Result<()>;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct OathVersion {
@@ -125,7 +126,11 @@ where
         }
     }
 
-    pub fn respond(&mut self, command: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
+    pub fn respond<C, R>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
+    where
+        C: ArrayLength<u8>,
+        R: ArrayLength<u8>,
+    {
 
         let no_authorization_needed = self.state.persistent(&mut self.trussed, |_, state| !state.password_set());
 
@@ -161,7 +166,11 @@ where
 
     }
 
-    fn inner_respond(&mut self, command: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
+    fn inner_respond<C, R>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
+    where
+        C: ArrayLength<u8>,
+        R: ArrayLength<u8>,
+    {
         let class = command.class();
         assert!(class.chain().last_or_only());
         assert!(class.secure_messaging().none());
@@ -194,7 +203,10 @@ where
         }
     }
 
-    pub fn select(&mut self, _select: command::Select<'_>, reply: &mut response::Data) -> applet::Result {
+    pub fn select<R>(&mut self, _select: command::Select<'_>, reply: &mut Data<R>) -> Result
+    where
+        R: ArrayLength<u8>,
+    {
         self.state.runtime.challenge =
             syscall!(self.trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
 
@@ -228,7 +240,7 @@ where
         Some(credential)
     }
 
-    pub fn reset(&mut self) -> applet::Result {
+    pub fn reset(&mut self) -> Result {
         // Well. `ykman oath reset` does not check PIN.
         // If you lost your PIN, you wouldn't be able to reset otherwise.
 
@@ -249,7 +261,7 @@ where
         Ok(())
     }
 
-    pub fn delete(&mut self, delete: command::Delete<'_>) -> applet::Result {
+    pub fn delete(&mut self, delete: command::Delete<'_>) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -284,7 +296,10 @@ where
     }
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
-    pub fn list_credentials(&mut self, reply: &mut response::Data) -> applet::Result {
+    pub fn list_credentials<R>(&mut self, reply: &mut Data<R>) -> Result
+    where
+        R: ArrayLength<u8>,
+    {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -347,7 +362,7 @@ where
         Ok(())
     }
 
-    pub fn register(&mut self, register: command::Register<'_>) -> applet::Result {
+    pub fn register(&mut self, register: command::Register<'_>) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -421,7 +436,10 @@ where
     //       06  <- digits
     //       5A D0 A7 CA <- dynamically truncated HMAC
     // 90 00
-    pub fn calculate_all(&mut self, calculate_all: command::CalculateAll<'_>, reply: &mut response::Data) -> applet::Result {
+    pub fn calculate_all<R>(&mut self, calculate_all: command::CalculateAll<'_>, reply: &mut Data<R>) -> Result
+    where
+        R: ArrayLength<u8>,
+    {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -467,7 +485,10 @@ where
         Ok(())
     }
 
-    pub fn calculate(&mut self, calculate: command::Calculate<'_>, reply: &mut response::Data) -> applet::Result {
+    pub fn calculate<R>(&mut self, calculate: command::Calculate<'_>, reply: &mut Data<R>) -> Result
+    where
+        R: ArrayLength<u8>,
+    {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -528,7 +549,10 @@ where
         Ok(())
     }
 
-    pub fn validate(&mut self, validate: command::Validate<'_>, reply: &mut response::Data) -> applet::Result {
+    pub fn validate<R>(&mut self, validate: command::Validate<'_>, reply: &mut Data<R>) -> Result
+    where
+        R: ArrayLength<u8>,
+    {
         let command::Validate { response, challenge } = validate;
 
         if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| state.authorization_key) {
@@ -574,7 +598,7 @@ where
 
     }
 
-    pub fn clear_password(&mut self) -> applet::Result {
+    pub fn clear_password(&mut self) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -589,7 +613,7 @@ where
         Ok(())
     }
 
-    pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> applet::Result {
+    pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -717,7 +741,7 @@ pub struct Credential<'l> {
 }
 
 // impl core::fmt::Debug for Credential<'_> {
-//     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::applet::Result<(), core::fmt::Error> {
+//     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
 //         fmt.debug_struct("Credential")
 //             .field("label", core::str::from_utf8(self.credential).unwrap_or(&self.credential))
 //             .field("kind", &self.kind)
@@ -745,8 +769,8 @@ impl<'l> Credential<'l> {
 }
 
 
-#[cfg(feature = "applet")]
-impl<T> applet::Aid for Authenticator<T> {
+#[cfg(feature = "apdu-dispatch")]
+impl<T> apdu_dispatch::app::Aid for Authenticator<T> {
 
     fn aid(&self) -> &'static [u8] {
         &crate::YUBICO_OATH_AID
@@ -758,18 +782,18 @@ impl<T> applet::Aid for Authenticator<T> {
 }
 
 
-#[cfg(feature = "applet")]
-impl<T> applet::Applet for Authenticator<T>
+#[cfg(feature = "apdu-dispatch")]
+impl<C: ArrayLength<u8>, R: ArrayLength<u8>, T> apdu_dispatch::app::App<C, R> for Authenticator<T>
 where
     T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
-    fn select(&mut self, apdu: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
+    fn select(&mut self, apdu: &iso7816::Command<C>, reply: &mut Data<R>) -> Result {
         self.respond(apdu, reply)
     }
 
     fn deselect(&mut self) { /*self.deselect()*/ }
 
-    fn call(&mut self, _type: applet::InterfaceType, apdu: &apdu_dispatch::Command, reply: &mut response::Data) -> applet::Result {
+    fn call(&mut self, _: iso7816::Interface, apdu: &iso7816::Command<C>, reply: &mut Data<R>) -> Result {
         self.respond(apdu, reply)
     }
 }
