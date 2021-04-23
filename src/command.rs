@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
 
-use apdu_dispatch::iso7816::Status;
-use apdu_dispatch::command;
+use heapless::ArrayLength;
+use iso7816::{Data, Status};
 
 use crate::oath;
 
@@ -53,9 +53,9 @@ pub struct SetPassword<'l> {
     pub response: &'l [u8],
 }
 
-impl<'l> TryFrom<&'l command::Data> for SetPassword<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for SetPassword<'l> {
     type Error = Status;
-    fn try_from(data: &'l command::Data) -> Result<Self, Self::Error> {
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         // key = self.derive_key(password)
         // keydata = bytearray([OATH_TYPE.TOTP | ALGO.SHA1]) + key
         // challenge = os.urandom(8)
@@ -104,9 +104,9 @@ pub struct Validate<'l> {
     pub challenge: &'l [u8],
 }
 
-impl<'l> TryFrom<&'l command::Data> for Validate<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Validate<'l> {
     type Error = Status;
-    fn try_from(data: &'l command::Data) -> Result<Self, Self::Error> {
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
@@ -128,9 +128,9 @@ pub struct Calculate<'l> {
     pub challenge: &'l [u8],
 }
 
-impl<'l> TryFrom<&'l command::Data> for Calculate<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Calculate<'l> {
     type Error = Status;
-    fn try_from(data: &'l command::Data) -> Result<Self, Self::Error> {
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
@@ -151,9 +151,9 @@ pub struct CalculateAll<'l> {
     pub challenge: &'l [u8],
 }
 
-impl<'l> TryFrom<&'l command::Data> for CalculateAll<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for CalculateAll<'l> {
     type Error = Status;
-    fn try_from(data: &'l command::Data) -> Result<Self, Self::Error> {
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
@@ -180,9 +180,9 @@ impl core::fmt::Debug for Delete<'_> {
 }
 
 
-impl<'l> TryFrom<&'l command::Data> for Delete<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Delete<'l> {
     type Error = iso7816::Status;
-    fn try_from(data: &'l command::Data) -> Result<Self, Self::Error> {
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
@@ -270,9 +270,9 @@ impl flexiber::Tagged for Properties {
     }
 }
 
-impl<'l> TryFrom<&'l command::Data> for Register<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Register<'l> {
     type Error = iso7816::Status;
-    fn try_from(data: &'l command::Data) -> Result<Self, Self::Error> {
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::{Decodable, TagLike};
         type TaggedSlice<'a> = flexiber::TaggedSlice<'a, flexiber::SimpleTag>;
         let mut decoder = flexiber::Decoder::new(data);
@@ -332,7 +332,7 @@ impl<'l> TryFrom<&'l command::Data> for Register<'l> {
     }
 }
 
-impl<'l> TryFrom<&'l apdu_dispatch::Command> for Command<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l iso7816::Command<C>> for Command<'l> {
     type Error = Status;
     /// The first layer of unraveling the iso7816::Command onion.
     ///
@@ -340,7 +340,7 @@ impl<'l> TryFrom<&'l apdu_dispatch::Command> for Command<'l> {
     /// in the "Command Syntax" boxes of NIST SP 800-73-4, and return early errors.
     ///
     /// The individual piv::Command TryFroms then further interpret these validated parameters.
-    fn try_from(command: &'l apdu_dispatch::Command) -> Result<Self, Self::Error> {
+    fn try_from(command: &'l iso7816::Command<C>) -> Result<Self, Self::Error> {
         let (class, instruction, p1, p2) = (command.class(), command.instruction(), command.p1, command.p2);
         let data = command.data();
 
@@ -382,9 +382,9 @@ impl<'l> TryFrom<&'l apdu_dispatch::Command> for Command<'l> {
     }
 }
 
-impl<'l> TryFrom<&'l command::Data> for Select<'l> {
+impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Select<'l> {
     type Error = Status;
-    fn try_from(data: &'l command::Data) -> Result<Self, Self::Error> {
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         // info_now!("comparing {} against {}", hex_str!(data.as_slice()), hex_str!(crate::YUBICO_OATH_AID));
         Ok(match data.as_slice() {
             crate::YUBICO_OATH_AID => Self { aid: data },
