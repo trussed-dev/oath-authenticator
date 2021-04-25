@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["AnswerToSelect",""],["Authenticator","The TOTP authenticator Trussed® app."],["ChallengingAnswerToSelect",""],["Credential",""],["OathVersion",""]]});
