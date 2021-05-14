@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use trussed::{
     client, syscall, try_syscall,
     postcard_deserialize, postcard_serialize, postcard_serialize_bytes,
-    types::{Location, ObjectHandle, PathBuf},
+    types::{KeyId, Location, PathBuf},
 };
 use crate::{command, Command, oath, state::{CommandState, State}};
 
@@ -735,7 +735,7 @@ pub struct Credential<'l> {
     ///
     /// Meanwhile, the client app just pads up to 14B :)
 
-    pub secret: trussed::types::ObjectHandle,
+    pub secret: KeyId,
     pub touch_required: bool,
     pub counter: Option<u32>,
 }
@@ -755,13 +755,13 @@ pub struct Credential<'l> {
 // }
 
 impl<'l> Credential<'l> {
-    fn from(credential: &command::Credential<'l>, handle: ObjectHandle) -> Self {
+    fn from(credential: &command::Credential<'l>, key: KeyId) -> Self {
         Self {
             label: credential.label,
             kind: credential.kind,
             algorithm: credential.algorithm,
             digits: credential.digits,
-            secret: handle,
+            secret: key,
             touch_required: credential.touch_required,
             counter: credential.counter,
         }
