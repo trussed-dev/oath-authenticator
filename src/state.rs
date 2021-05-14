@@ -6,7 +6,7 @@ use iso7816::Status;
 use trussed::{
     postcard_deserialize, postcard_serialize_bytes,
     syscall, try_syscall,
-    types::{ObjectHandle, Location, PathBuf},
+    types::{KeyId, Location, PathBuf},
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -25,7 +25,7 @@ pub struct Persistent {
     pub salt: [u8; 8],
     /// This is the user's password, passed through PBKDF-HMAC-SHA1.
     /// It is used for authorization using challenge HMAC-SHA1'ing.
-    pub authorization_key: Option<ObjectHandle>,
+    pub authorization_key: Option<KeyId>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
