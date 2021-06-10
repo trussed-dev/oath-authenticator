@@ -1,6 +1,5 @@
 use core::convert::{TryFrom, TryInto};
 
-use heapless::ArrayLength;
 use iso7816::{Data, Status};
 
 use crate::oath;
@@ -53,7 +52,7 @@ pub struct SetPassword<'l> {
     pub response: &'l [u8],
 }
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for SetPassword<'l> {
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for SetPassword<'l> {
     type Error = Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         // key = self.derive_key(password)
@@ -104,7 +103,7 @@ pub struct Validate<'l> {
     pub challenge: &'l [u8],
 }
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Validate<'l> {
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for Validate<'l> {
     type Error = Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
@@ -128,7 +127,7 @@ pub struct Calculate<'l> {
     pub challenge: &'l [u8],
 }
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Calculate<'l> {
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for Calculate<'l> {
     type Error = Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
@@ -151,7 +150,7 @@ pub struct CalculateAll<'l> {
     pub challenge: &'l [u8],
 }
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for CalculateAll<'l> {
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for CalculateAll<'l> {
     type Error = Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
@@ -180,7 +179,7 @@ impl core::fmt::Debug for Delete<'_> {
 }
 
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Delete<'l> {
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for Delete<'l> {
     type Error = iso7816::Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::TaggedSlice;
@@ -270,7 +269,7 @@ impl flexiber::Tagged for Properties {
     }
 }
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Register<'l> {
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for Register<'l> {
     type Error = iso7816::Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         use flexiber::{Decodable, TagLike};
@@ -332,7 +331,7 @@ impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Register<'l> {
     }
 }
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l iso7816::Command<C>> for Command<'l> {
+impl<'l, const C: usize> TryFrom<&'l iso7816::Command<C>> for Command<'l> {
     type Error = Status;
     /// The first layer of unraveling the iso7816::Command onion.
     ///
@@ -382,7 +381,7 @@ impl<'l, C: ArrayLength<u8>> TryFrom<&'l iso7816::Command<C>> for Command<'l> {
     }
 }
 
-impl<'l, C: ArrayLength<u8>> TryFrom<&'l Data<C>> for Select<'l> {
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for Select<'l> {
     type Error = Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
         // info_now!("comparing {} against {}", hex_str!(data.as_slice()), hex_str!(crate::YUBICO_OATH_AID));

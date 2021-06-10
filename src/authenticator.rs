@@ -1,7 +1,6 @@
 use core::convert::TryInto;
 
 use flexiber::{Encodable, EncodableHeapless};
-use heapless::ArrayLength;
 use iso7816::{Data, Status};
 use serde::{Deserialize, Serialize};
 use trussed::{
@@ -126,10 +125,7 @@ where
         }
     }
 
-    pub fn respond<C, R>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
-    where
-        C: ArrayLength<u8>,
-        R: ArrayLength<u8>,
+    pub fn respond<const C: usize, const R: usize>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
     {
 
         let no_authorization_needed = self.state.persistent(&mut self.trussed, |_, state| !state.password_set());
@@ -166,10 +162,7 @@ where
 
     }
 
-    fn inner_respond<C, R>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
-    where
-        C: ArrayLength<u8>,
-        R: ArrayLength<u8>,
+    fn inner_respond<const C: usize, const R: usize>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
     {
         let class = command.class();
         assert!(class.chain().last_or_only());
@@ -203,9 +196,7 @@ where
         }
     }
 
-    pub fn select<R>(&mut self, _select: command::Select<'_>, reply: &mut Data<R>) -> Result
-    where
-        R: ArrayLength<u8>,
+    pub fn select<const R: usize>(&mut self, _select: command::Select<'_>, reply: &mut Data<R>) -> Result
     {
         self.state.runtime.challenge =
             syscall!(self.trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
@@ -213,7 +204,7 @@ where
         let state = self.state.persistent(&mut self.trussed, |_, state| state.clone() );
         let answer_to_select = AnswerToSelect::new(state.salt);
 
-        let data: heapless::Vec<u8,heapless::consts::U128> = if state.password_set() {
+        let data: heapless::Vec<u8, 128> = if state.password_set() {
             answer_to_select.with_challenge(self.state.runtime.challenge).to_heapless_vec()
         } else {
             answer_to_select.to_heapless_vec()
@@ -296,9 +287,7 @@ where
     }
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
-    pub fn list_credentials<R>(&mut self, reply: &mut Data<R>) -> Result
-    where
-        R: ArrayLength<u8>,
+    pub fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result
     {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -395,7 +384,7 @@ where
         syscall!(self.trussed.write_file(
             Location::Internal,
             filename,
-            heapless_bytes::Bytes::try_from_slice(serialized).unwrap(),
+            heapless_bytes::Bytes::from_slice(serialized).unwrap(),
             None
         ));
 
@@ -436,9 +425,7 @@ where
     //       06  <- digits
     //       5A D0 A7 CA <- dynamically truncated HMAC
     // 90 00
-    pub fn calculate_all<R>(&mut self, calculate_all: command::CalculateAll<'_>, reply: &mut Data<R>) -> Result
-    where
-        R: ArrayLength<u8>,
+    pub fn calculate_all<const R: usize>(&mut self, calculate_all: command::CalculateAll<'_>, reply: &mut Data<R>) -> Result
     {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -485,9 +472,7 @@ where
         Ok(())
     }
 
-    pub fn calculate<R>(&mut self, calculate: command::Calculate<'_>, reply: &mut Data<R>) -> Result
-    where
-        R: ArrayLength<u8>,
+    pub fn calculate<const R: usize>(&mut self, calculate: command::Calculate<'_>, reply: &mut Data<R>) -> Result
     {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -549,9 +534,7 @@ where
         Ok(())
     }
 
-    pub fn validate<R>(&mut self, validate: command::Validate<'_>, reply: &mut Data<R>) -> Result
-    where
-        R: ArrayLength<u8>,
+    pub fn validate<const R: usize>(&mut self, validate: command::Validate<'_>, reply: &mut Data<R>) -> Result
     {
         let command::Validate { response, challenge } = validate;
 
@@ -769,21 +752,15 @@ impl<'l> Credential<'l> {
 }
 
 
-#[cfg(feature = "apdu-dispatch")]
-impl<T> apdu_dispatch::app::Aid for Authenticator<T> {
-
-    fn aid(&self) -> &'static [u8] {
-        &crate::YUBICO_OATH_AID
-    }
-
-    fn right_truncated_length(&self) -> usize {
-        crate::YUBICO_OATH_AID.len()
+impl<T> iso7816::App for Authenticator<T> {
+    fn aid(&self) -> iso7816::Aid {
+        iso7816::Aid::new(&crate::YUBICO_OATH_AID)
     }
 }
 
 
 #[cfg(feature = "apdu-dispatch")]
-impl<C: ArrayLength<u8>, R: ArrayLength<u8>, T> apdu_dispatch::app::App<C, R> for Authenticator<T>
+impl<T, const C: usize, const R: usize> apdu_dispatch::app::App<C, R> for Authenticator<T>
 where
     T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {

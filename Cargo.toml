@@ -12,8 +12,8 @@ apdu-dispatch = { git = "https://github.com/solokeys/apdu-dispatch", branch = "m
 delog = "0.1.2"
 # flexiber = { path = "/home/nicolas/projects/flexiber", features = ["derive", "heapless"] }
 flexiber = { git = "https://github.com/nickray/flexiber", branch = "main", features = ["derive", "heapless"] }
-heapless = "0.6"
-heapless-bytes = "0.2"
+heapless = "0.7"
+heapless-bytes = "0.3"
 hex-literal = "0.3"
 interchange = "0.2"
 iso7816 = { git = "https://github.com/ycrypto/iso7816", branch = "main" }
