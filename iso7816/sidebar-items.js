@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Interface",""]],"mod":[["command",""],["response",""]],"struct":[["Bytes",""]],"type":[["Aid",""],["Result",""]]});
+initSidebarItems({"enum":[["Interface",""],["Status",""]],"mod":[["aid",""],["command",""],["response",""]],"type":[["Data",""],["Result",""]]});

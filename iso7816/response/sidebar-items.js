@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Response",""]],"mod":[["status",""]],"type":[["Data",""]]});
+initSidebarItems({"enum":[["Response",""],["Status",""]]});
