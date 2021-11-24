@@ -28,6 +28,7 @@ sourcesIndex["elliptic_curve"] = {"name":"","dirs":[{"name":"scalar","files":["b
 sourcesIndex["embedded_hal"] = {"name":"","dirs":[{"name":"blocking","files":["delay.rs","i2c.rs","mod.rs","rng.rs","serial.rs","spi.rs"]},{"name":"digital","files":["mod.rs","v1.rs","v1_compat.rs","v2.rs","v2_compat.rs"]}],"files":["adc.rs","fmt.rs","lib.rs","prelude.rs","serial.rs","spi.rs","timer.rs","watchdog.rs"]};
 sourcesIndex["ff"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["flexiber"] = {"name":"","files":["decoder.rs","encoder.rs","error.rs","header.rs","length.rs","lib.rs","simpletag.rs","slice.rs","tag.rs","tagged.rs","traits.rs"]};
+sourcesIndex["flexiber_derive"] = {"name":"","files":["decodable.rs","encodable.rs","lib.rs"]};
 sourcesIndex["funty"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["generic_array"] = {"name":"","files":["arr.rs","functional.rs","hex.rs","impls.rs","iter.rs","lib.rs","sequence.rs"]};
 sourcesIndex["group"] = {"name":"","files":["cofactor.rs","lib.rs","prime.rs"]};
