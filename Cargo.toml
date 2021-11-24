@@ -8,18 +8,17 @@ license = "Apache-2.0 OR MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-apdu-dispatch = { git = "https://github.com/solokeys/apdu-dispatch", branch = "main",  optional = true }
+apdu-dispatch = { git = "https://github.com/solokeys/apdu-dispatch",  optional = true }
 delog = "0.1.2"
 # flexiber = { path = "/home/nicolas/projects/flexiber", features = ["derive", "heapless"] }
-flexiber = { git = "https://github.com/nickray/flexiber", branch = "main", features = ["derive", "heapless"] }
+flexiber = { git = "https://github.com/nickray/flexiber", features = ["derive", "heapless"] }
 heapless = "0.7"
 heapless-bytes = "0.3"
 hex-literal = "0.3"
 interchange = "0.2"
-iso7816 = { git = "https://github.com/ycrypto/iso7816", branch = "main" }
+iso7816 = { git = "https://github.com/ycrypto/iso7816" }
 serde = { version = "1", default-features = false }
-trussed = { git = "https://github.com/trussed-dev/trussed", branch = "main" }
-# trussed = { path = "../../../trussed" }
+trussed = { git = "https://github.com/trussed-dev/trussed" }
 
 [features]
 default = ["apdu-dispatch"]
