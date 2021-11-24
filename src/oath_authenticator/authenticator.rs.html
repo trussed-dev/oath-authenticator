@@ -1,7 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/authenticator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>authenticator.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../oath_authenticator/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;authenticator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>authenticator.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../oath_authenticator/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -777,8 +774,7 @@
 <span id="774">774</span>
 <span id="775">775</span>
 <span id="776">776</span>
-</pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="ident">core</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">core::convert::TryInto</span>;
 
 <span class="kw">use</span> <span class="ident">flexiber</span>::{<span class="ident">Encodable</span>, <span class="ident">EncodableHeapless</span>};
 <span class="kw">use</span> <span class="ident">iso7816</span>::{<span class="ident">Data</span>, <span class="ident">Status</span>};
@@ -796,7 +792,7 @@
     <span class="ident">trussed</span>: <span class="ident">T</span>,
 }
 
-<span class="kw">type</span> <span class="prelude-ty">Result</span> <span class="op">=</span> <span class="ident">iso7816</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="prelude-ty">Result</span> <span class="op">=</span> <span class="ident">iso7816::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OathVersion</span> {
@@ -813,11 +809,11 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">flexiber</span>::<span class="ident">Encodable</span> <span class="kw">for</span> <span class="ident">OathVersion</span> {
-    <span class="kw">fn</span> <span class="ident">encoded_length</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">flexiber</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">flexiber</span>::<span class="ident">Length</span><span class="op">&gt;</span> {
+<span class="kw">impl</span> <span class="ident">flexiber::Encodable</span> <span class="kw">for</span> <span class="ident">OathVersion</span> {
+    <span class="kw">fn</span> <span class="ident">encoded_length</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">flexiber::Result</span><span class="op">&lt;</span><span class="ident">flexiber::Length</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="number">3u8</span>.<span class="ident">into</span>())
     }
-    <span class="kw">fn</span> <span class="ident">encode</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">encoder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">flexiber</span>::<span class="ident">Encoder</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">flexiber</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">encode</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">encoder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">flexiber::Encoder</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">flexiber::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> [<span class="self">self</span>.<span class="ident">major</span>, <span class="self">self</span>.<span class="ident">minor</span>, <span class="self">self</span>.<span class="ident">patch</span>];
         <span class="ident">buf</span>.<span class="ident">as_ref</span>().<span class="ident">encode</span>(<span class="ident">encoder</span>)
     }
@@ -871,7 +867,7 @@
     <span class="doccomment">/// It gets rotated on device reset.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">salt</span>: [<span class="ident">u8</span>; <span class="number">8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">version</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">version</span>: <span class="ident">Default::default</span>(),
             <span class="ident">salt</span>,
             <span class="comment">// challenge: None,</span>
         }
@@ -891,21 +887,21 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Authenticator</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">client</span>::<span class="ident">Client</span> <span class="op">+</span> <span class="ident">client</span>::<span class="ident">HmacSha1</span> <span class="op">+</span> <span class="ident">client</span>::<span class="ident">HmacSha256</span> <span class="op">+</span> <span class="ident">client</span>::<span class="ident">Sha256</span>,
+    <span class="ident">T</span>: <span class="ident">client::Client</span> <span class="op">+</span> <span class="ident">client::HmacSha1</span> <span class="op">+</span> <span class="ident">client::HmacSha256</span> <span class="op">+</span> <span class="ident">client::Sha256</span>,
 {
     <span class="comment">// const CREDENTIAL_DIRECTORY: &amp;&#39;static str = &quot;cred&quot;;</span>
     <span class="kw">fn</span> <span class="ident">credential_directory</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span> {
-        <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="string">&quot;cred&quot;</span>)
+        <span class="ident">PathBuf::from</span>(<span class="string">&quot;cred&quot;</span>)
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">trussed</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">state</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">state</span>: <span class="ident">Default::default</span>(),
             <span class="ident">trussed</span>,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">respond</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">C</span>: <span class="ident">usize</span>, <span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">command</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816</span>::<span class="ident">Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">respond</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">C</span>: <span class="ident">usize</span>, <span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">command</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816::Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
     {
 
         <span class="kw">let</span> <span class="ident">no_authorization_needed</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">persistent</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>, <span class="op">|</span><span class="kw">_</span>, <span class="ident">state</span><span class="op">|</span> <span class="op">!</span><span class="ident">state</span>.<span class="ident">password_set</span>());
@@ -942,49 +938,49 @@
 
     }
 
-    <span class="kw">fn</span> <span class="ident">inner_respond</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">C</span>: <span class="ident">usize</span>, <span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">command</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816</span>::<span class="ident">Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
+    <span class="kw">fn</span> <span class="ident">inner_respond</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">C</span>: <span class="ident">usize</span>, <span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">command</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816::Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
     {
         <span class="kw">let</span> <span class="ident">class</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">class</span>();
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">class</span>.<span class="ident">chain</span>().<span class="ident">last_or_only</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">class</span>.<span class="ident">secure_messaging</span>().<span class="ident">none</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">class</span>.<span class="ident">channel</span>() <span class="op">=</span><span class="op">=</span> <span class="prelude-val">Some</span>(<span class="number">0</span>));
+        <span class="macro">assert!</span>(<span class="ident">class</span>.<span class="ident">chain</span>().<span class="ident">last_or_only</span>());
+        <span class="macro">assert!</span>(<span class="ident">class</span>.<span class="ident">secure_messaging</span>().<span class="ident">none</span>());
+        <span class="macro">assert!</span>(<span class="ident">class</span>.<span class="ident">channel</span>() <span class="op">=</span><span class="op">=</span> <span class="prelude-val">Some</span>(<span class="number">0</span>));
 
         <span class="comment">// parse Iso7816Command as PivCommand</span>
         <span class="kw">let</span> <span class="ident">command</span>: <span class="ident">Command</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">try_into</span>()<span class="question-mark">?</span>;
         <span class="comment">// info_now!(&quot;\n====\n{:?}\n====\n&quot;, &amp;command);</span>
-        <span class="macro">info_now</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">command</span>);
+        <span class="macro">info_now!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">command</span>);
 
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
             <span class="kw">match</span> <span class="ident">command</span> {
-                <span class="ident">Command</span>::<span class="ident">Select</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
-                <span class="ident">Command</span>::<span class="ident">Validate</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
-                <span class="ident">Command</span>::<span class="ident">Reset</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>),
+                <span class="ident">Command::Select</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
+                <span class="ident">Command::Validate</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
+                <span class="ident">Command::Reset</span> <span class="op">=</span><span class="op">&gt;</span> {}
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>),
             }
         }
         <span class="kw">match</span> <span class="ident">command</span> {
-            <span class="ident">Command</span>::<span class="ident">Select</span>(<span class="ident">select</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">select</span>(<span class="ident">select</span>, <span class="ident">reply</span>),
-            <span class="ident">Command</span>::<span class="ident">ListCredentials</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">list_credentials</span>(<span class="ident">reply</span>),
-            <span class="ident">Command</span>::<span class="ident">Register</span>(<span class="ident">register</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">register</span>(<span class="ident">register</span>),
-            <span class="ident">Command</span>::<span class="ident">Calculate</span>(<span class="ident">calculate</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">calculate</span>(<span class="ident">calculate</span>, <span class="ident">reply</span>),
-            <span class="ident">Command</span>::<span class="ident">CalculateAll</span>(<span class="ident">calculate_all</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">calculate_all</span>(<span class="ident">calculate_all</span>, <span class="ident">reply</span>),
-            <span class="ident">Command</span>::<span class="ident">Delete</span>(<span class="ident">delete</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">delete</span>(<span class="ident">delete</span>),
-            <span class="ident">Command</span>::<span class="ident">Reset</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">reset</span>(),
-            <span class="ident">Command</span>::<span class="ident">Validate</span>(<span class="ident">validate</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">validate</span>(<span class="ident">validate</span>, <span class="ident">reply</span>),
-            <span class="ident">Command</span>::<span class="ident">SetPassword</span>(<span class="ident">set_password</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">set_password</span>(<span class="ident">set_password</span>),
-            <span class="ident">Command</span>::<span class="ident">ClearPassword</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">clear_password</span>(),
+            <span class="ident">Command::Select</span>(<span class="ident">select</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">select</span>(<span class="ident">select</span>, <span class="ident">reply</span>),
+            <span class="ident">Command::ListCredentials</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">list_credentials</span>(<span class="ident">reply</span>),
+            <span class="ident">Command::Register</span>(<span class="ident">register</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">register</span>(<span class="ident">register</span>),
+            <span class="ident">Command::Calculate</span>(<span class="ident">calculate</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">calculate</span>(<span class="ident">calculate</span>, <span class="ident">reply</span>),
+            <span class="ident">Command::CalculateAll</span>(<span class="ident">calculate_all</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">calculate_all</span>(<span class="ident">calculate_all</span>, <span class="ident">reply</span>),
+            <span class="ident">Command::Delete</span>(<span class="ident">delete</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">delete</span>(<span class="ident">delete</span>),
+            <span class="ident">Command::Reset</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">reset</span>(),
+            <span class="ident">Command::Validate</span>(<span class="ident">validate</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">validate</span>(<span class="ident">validate</span>, <span class="ident">reply</span>),
+            <span class="ident">Command::SetPassword</span>(<span class="ident">set_password</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">set_password</span>(<span class="ident">set_password</span>),
+            <span class="ident">Command::ClearPassword</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">clear_password</span>(),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">select</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_select</span>: <span class="ident">command</span>::<span class="ident">Select</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">select</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_select</span>: <span class="ident">command::Select</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
     {
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">challenge</span> <span class="op">=</span>
-            <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">random_bytes</span>(<span class="number">8</span>)).<span class="ident">bytes</span>.<span class="ident">as_ref</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
+            <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">random_bytes</span>(<span class="number">8</span>)).<span class="ident">bytes</span>.<span class="ident">as_ref</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
 
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">persistent</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>, <span class="op">|</span><span class="kw">_</span>, <span class="ident">state</span><span class="op">|</span> <span class="ident">state</span>.<span class="ident">clone</span>() );
-        <span class="kw">let</span> <span class="ident">answer_to_select</span> <span class="op">=</span> <span class="ident">AnswerToSelect</span>::<span class="ident">new</span>(<span class="ident">state</span>.<span class="ident">salt</span>);
+        <span class="kw">let</span> <span class="ident">answer_to_select</span> <span class="op">=</span> <span class="ident">AnswerToSelect::new</span>(<span class="ident">state</span>.<span class="ident">salt</span>);
 
-        <span class="kw">let</span> <span class="ident">data</span>: <span class="ident">heapless</span>::<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="number">128</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">password_set</span>() {
+        <span class="kw">let</span> <span class="ident">data</span>: <span class="ident">heapless::Vec</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="number">128</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">password_set</span>() {
             <span class="ident">answer_to_select</span>.<span class="ident">with_challenge</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">challenge</span>).<span class="ident">to_heapless_vec</span>()
         } <span class="kw">else</span> {
             <span class="ident">answer_to_select</span>.<span class="ident">to_heapless_vec</span>()
@@ -997,8 +993,8 @@
     <span class="kw">fn</span> <span class="ident">load_credential</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Credential</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="ident">label</span>);
 
-        <span class="kw">let</span> <span class="ident">serialized_credential</span> <span class="op">=</span> <span class="macro">try_syscall</span><span class="macro">!</span>(
-            <span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_file</span>(<span class="ident">Location</span>::<span class="ident">Internal</span>, <span class="ident">filename</span>)
+        <span class="kw">let</span> <span class="ident">serialized_credential</span> <span class="op">=</span> <span class="macro">try_syscall!</span>(
+            <span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_file</span>(<span class="ident">Location::Internal</span>, <span class="ident">filename</span>)
         )
             .<span class="ident">ok</span>()<span class="question-mark">?</span>
             .<span class="ident">data</span>;
@@ -1019,24 +1015,24 @@
         <span class="comment">//     return Err(Status::ConditionsOfUseNotSatisfied);</span>
         <span class="comment">// }</span>
 
-        <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;:: reset - delete all keys&quot;</span>);
-        <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete_all</span>(<span class="ident">Location</span>::<span class="ident">Internal</span>));
+        <span class="macro">debug_now!</span>(<span class="string">&quot;:: reset - delete all keys&quot;</span>);
+        <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete_all</span>(<span class="ident">Location::Internal</span>));
 
-        <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;:: reset - delete all files&quot;</span>);
+        <span class="macro">debug_now!</span>(<span class="string">&quot;:: reset - delete all files&quot;</span>);
         <span class="comment">// NB: This deletes state.bin too, so it removes a possibly set password.</span>
-        <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">remove_dir_all</span>(<span class="ident">Location</span>::<span class="ident">Internal</span>, <span class="ident">PathBuf</span>::<span class="ident">new</span>()));
+        <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">remove_dir_all</span>(<span class="ident">Location::Internal</span>, <span class="ident">PathBuf::new</span>()));
 
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">reset</span>();
 
-        <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;:: reset over&quot;</span>);
+        <span class="macro">debug_now!</span>(<span class="string">&quot;:: reset over&quot;</span>);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">delete</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">delete</span>: <span class="ident">command</span>::<span class="ident">Delete</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">delete</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">delete</span>: <span class="ident">command::Delete</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
-        <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">delete</span>);
+        <span class="macro">debug_now!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">delete</span>);
         <span class="comment">// It seems tooling first lists all credentials, so the case of</span>
         <span class="comment">// delete being called on a non-existing label hardly occurs.</span>
 
@@ -1050,27 +1046,27 @@
 
         <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">delete</span>.<span class="ident">label</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">credential</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">load_credential</span>(<span class="ident">label</span>) {
-            <span class="kw">if</span> <span class="op">!</span><span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete</span>(<span class="ident">credential</span>.<span class="ident">secret</span>)).<span class="ident">success</span> {
-                <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;could not delete secret {:?}&quot;</span>, <span class="ident">credential</span>.<span class="ident">secret</span>);
+            <span class="kw">if</span> <span class="op">!</span><span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete</span>(<span class="ident">credential</span>.<span class="ident">secret</span>)).<span class="ident">success</span> {
+                <span class="macro">debug_now!</span>(<span class="string">&quot;could not delete secret {:?}&quot;</span>, <span class="ident">credential</span>.<span class="ident">secret</span>);
             } <span class="kw">else</span> {
-                <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;deleted secret {:?}&quot;</span>, <span class="ident">credential</span>.<span class="ident">secret</span>);
+                <span class="macro">debug_now!</span>(<span class="string">&quot;deleted secret {:?}&quot;</span>, <span class="ident">credential</span>.<span class="ident">secret</span>);
             }
 
             <span class="kw">let</span> <span class="ident">_filename</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="ident">label</span>);
-            <span class="kw">if</span> <span class="macro">try_syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">remove_file</span>(<span class="ident">Location</span>::<span class="ident">Internal</span>, <span class="ident">_filename</span>)).<span class="ident">is_err</span>() {
-                <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;could not delete credential with filename {}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="ident">label</span>));
+            <span class="kw">if</span> <span class="macro">try_syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">remove_file</span>(<span class="ident">Location::Internal</span>, <span class="ident">_filename</span>)).<span class="ident">is_err</span>() {
+                <span class="macro">debug_now!</span>(<span class="string">&quot;could not delete credential with filename {}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="ident">label</span>));
             } <span class="kw">else</span> {
-                <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;deleted credential with filename {}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="ident">label</span>));
+                <span class="macro">debug_now!</span>(<span class="string">&quot;deleted credential with filename {}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="ident">label</span>));
             }
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">Default</span>::<span class="ident">default</span>())
+        <span class="prelude-val">Ok</span>(<span class="ident">Default::default</span>())
     }
 
     <span class="doccomment">/// The YK5 can store a Grande Totale of 32 OATH credentials.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">list_credentials</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
     {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
         <span class="comment">// info_now!(&quot;recv ListCredentials&quot;);</span>
         <span class="comment">// return Ok(Default::default());</span>
@@ -1080,9 +1076,9 @@
         <span class="comment">//          79 75 62 69  63 6F</span>
         <span class="comment">// 90 00</span>
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_first</span>(
-            <span class="ident">Location</span>::<span class="ident">Internal</span>,
-            <span class="self">Self</span>::<span class="ident">credential_directory</span>(),
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_first</span>(
+            <span class="ident">Location::Internal</span>,
+            <span class="ident"><span class="self">Self</span>::credential_directory</span>(),
             <span class="prelude-val">None</span>
         )).<span class="ident">data</span>;
 
@@ -1092,7 +1088,7 @@
 
             <span class="comment">// keep track, in case we need continuation</span>
             <span class="ident">file_index</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">previously</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">CommandState</span>::<span class="ident">ListCredentials</span>(<span class="ident">file_index</span>));
+            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">previously</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">CommandState::ListCredentials</span>(<span class="ident">file_index</span>));
 
             <span class="comment">// deserialize</span>
             <span class="kw">let</span> <span class="ident">credential</span>: <span class="ident">Credential</span> <span class="op">=</span> <span class="ident">postcard_deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">serialized_credential</span>).<span class="ident">unwrap</span>();
@@ -1104,11 +1100,11 @@
             <span class="comment">// label</span>
             <span class="ident">reply</span>.<span class="ident">push</span>(<span class="number">0x72</span>).<span class="ident">unwrap</span>();
             <span class="ident">reply</span>.<span class="ident">push</span>((<span class="ident">credential</span>.<span class="ident">label</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="number">1</span>) <span class="kw">as</span> <span class="ident">u8</span>).<span class="ident">unwrap</span>();
-            <span class="ident">reply</span>.<span class="ident">push</span>(<span class="ident">oath</span>::<span class="ident">combine</span>(<span class="ident">credential</span>.<span class="ident">kind</span>, <span class="ident">credential</span>.<span class="ident">algorithm</span>)).<span class="ident">unwrap</span>();
+            <span class="ident">reply</span>.<span class="ident">push</span>(<span class="ident">oath::combine</span>(<span class="ident">credential</span>.<span class="ident">kind</span>, <span class="ident">credential</span>.<span class="ident">algorithm</span>)).<span class="ident">unwrap</span>();
             <span class="ident">reply</span>.<span class="ident">extend_from_slice</span>(<span class="ident">credential</span>.<span class="ident">label</span>).<span class="ident">unwrap</span>();
 
             <span class="comment">// check if there&#39;s more</span>
-            <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_next</span>()).<span class="ident">data</span>;
+            <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_next</span>()).<span class="ident">data</span>;
 
             <span class="kw">if</span> <span class="ident">file_index</span> <span class="op">%</span> <span class="number">8</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
                 <span class="comment">// TODO: split response</span>
@@ -1131,26 +1127,26 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">register</span>: <span class="ident">command</span>::<span class="ident">Register</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">register</span>: <span class="ident">command::Register</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
         <span class="comment">// info_now!(&quot;recv {:?}&quot;, &amp;register);</span>
 
         <span class="comment">// 0. ykman does not call delete before register, so we need to speculatively</span>
         <span class="comment">// delete the credential (the credential file would be replaced, but we need</span>
         <span class="comment">// to delete the secret key).</span>
-        <span class="self">self</span>.<span class="ident">delete</span>(<span class="ident">command</span>::<span class="ident">Delete</span> { <span class="ident">label</span>: <span class="ident">register</span>.<span class="ident">credential</span>.<span class="ident">label</span> }).<span class="ident">ok</span>();
+        <span class="self">self</span>.<span class="ident">delete</span>(<span class="ident">command::Delete</span> { <span class="ident">label</span>: <span class="ident">register</span>.<span class="ident">credential</span>.<span class="ident">label</span> }).<span class="ident">ok</span>();
 
         <span class="comment">// 1. Store secret in Trussed</span>
         <span class="kw">let</span> <span class="ident">raw_key</span> <span class="op">=</span> <span class="ident">register</span>.<span class="ident">credential</span>.<span class="ident">secret</span>;
-        <span class="kw">let</span> <span class="ident">key_handle</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(
-            <span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">unsafe_inject_shared_key</span>(<span class="ident">raw_key</span>, <span class="ident">Location</span>::<span class="ident">Internal</span>)
+        <span class="kw">let</span> <span class="ident">key_handle</span> <span class="op">=</span> <span class="macro">syscall!</span>(
+            <span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">unsafe_inject_shared_key</span>(<span class="ident">raw_key</span>, <span class="ident">Location::Internal</span>)
         ).<span class="ident">key</span>;
         <span class="comment">// info!(&quot;new key handle: {:?}&quot;, key_handle);</span>
 
         <span class="comment">// 2. Replace secret in credential with handle</span>
-        <span class="kw">let</span> <span class="ident">credential</span> <span class="op">=</span> <span class="ident">Credential</span>::<span class="ident">from</span>(<span class="kw-2">&amp;</span><span class="ident">register</span>.<span class="ident">credential</span>, <span class="ident">key_handle</span>);
+        <span class="kw">let</span> <span class="ident">credential</span> <span class="op">=</span> <span class="ident">Credential::from</span>(<span class="kw-2">&amp;</span><span class="ident">register</span>.<span class="ident">credential</span>, <span class="ident">key_handle</span>);
 
         <span class="comment">// 3. Generate a filename for the credential</span>
         <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="kw-2">&amp;</span><span class="ident">credential</span>.<span class="ident">label</span>);
@@ -1161,18 +1157,18 @@
         <span class="comment">// info_now!(&quot;storing serialized credential: {}&quot;, hex_str!(&amp;serialized));</span>
 
         <span class="comment">// 5. Store it</span>
-        <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">write_file</span>(
-            <span class="ident">Location</span>::<span class="ident">Internal</span>,
+        <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">write_file</span>(
+            <span class="ident">Location::Internal</span>,
             <span class="ident">filename</span>,
-            <span class="ident">heapless_bytes</span>::<span class="ident">Bytes</span>::<span class="ident">from_slice</span>(<span class="ident">serialized</span>).<span class="ident">unwrap</span>(),
+            <span class="ident">heapless_bytes::Bytes::from_slice</span>(<span class="ident">serialized</span>).<span class="ident">unwrap</span>(),
             <span class="prelude-val">None</span>
         ));
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">filename_for_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">trussed</span>::<span class="ident">types</span>::<span class="ident">PathBuf</span> {
-        <span class="kw">let</span> <span class="ident">label_hash</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">hash_sha256</span>(<span class="ident">label</span>))
+    <span class="kw">fn</span> <span class="ident">filename_for_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">trussed::types::PathBuf</span> {
+        <span class="kw">let</span> <span class="ident">label_hash</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">hash_sha256</span>(<span class="ident">label</span>))
             .<span class="ident">hash</span>;
 
         <span class="comment">// todo: maybe use a counter instead (put it in our persistent state).</span>
@@ -1183,10 +1179,10 @@
             <span class="ident">hex_filename</span>[<span class="number">2</span><span class="kw-2">*</span><span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>] <span class="op">=</span> <span class="ident">LOOKUP</span>[(<span class="ident">value</span> <span class="op">&amp;</span> <span class="number">0xF</span>) <span class="kw">as</span> <span class="ident">usize</span>];
         }
 
-        <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">hex_filename</span>.<span class="ident">as_ref</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">credential_directory</span>();
+        <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">hex_filename</span>.<span class="ident">as_ref</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::credential_directory</span>();
         <span class="ident">path</span>.<span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>);
-        <span class="macro">info_now</span><span class="macro">!</span>(<span class="string">&quot;filename: {}&quot;</span>, <span class="ident">path</span>.<span class="ident">as_str_ref_with_trailing_nul</span>());
+        <span class="macro">info_now!</span>(<span class="string">&quot;filename: {}&quot;</span>, <span class="ident">path</span>.<span class="ident">as_str_ref_with_trailing_nul</span>());
         <span class="ident">path</span>
     }
 
@@ -1205,14 +1201,14 @@
     <span class="comment">//       06  &lt;- digits</span>
     <span class="comment">//       5A D0 A7 CA &lt;- dynamically truncated HMAC</span>
     <span class="comment">// 90 00</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">calculate_all</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">calculate_all</span>: <span class="ident">command</span>::<span class="ident">CalculateAll</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">calculate_all</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">calculate_all</span>: <span class="ident">command::CalculateAll</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
     {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_first</span>(
-            <span class="ident">Location</span>::<span class="ident">Internal</span>,
-            <span class="self">Self</span>::<span class="ident">credential_directory</span>(),
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_first</span>(
+            <span class="ident">Location::Internal</span>,
+            <span class="ident"><span class="self">Self</span>::credential_directory</span>(),
             <span class="prelude-val">None</span>
         )).<span class="ident">data</span>;
 
@@ -1228,8 +1224,8 @@
             <span class="ident">reply</span>.<span class="ident">extend_from_slice</span>(<span class="ident">credential</span>.<span class="ident">label</span>).<span class="ident">unwrap</span>();
 
             <span class="comment">// calculate the value</span>
-            <span class="kw">if</span> <span class="ident">credential</span>.<span class="ident">kind</span> <span class="op">=</span><span class="op">=</span> <span class="ident">oath</span>::<span class="ident">Kind</span>::<span class="ident">Totp</span> {
-                <span class="kw">let</span> <span class="ident">truncated_digest</span> <span class="op">=</span> <span class="kw">crate</span>::<span class="ident">calculate</span>::<span class="ident">calculate</span>(
+            <span class="kw">if</span> <span class="ident">credential</span>.<span class="ident">kind</span> <span class="op">=</span><span class="op">=</span> <span class="ident">oath::Kind::Totp</span> {
+                <span class="kw">let</span> <span class="ident">truncated_digest</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::calculate::calculate</span>(
                     <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>,
                     <span class="ident">credential</span>.<span class="ident">algorithm</span>,
                     <span class="ident">calculate_all</span>.<span class="ident">challenge</span>,
@@ -1245,52 +1241,52 @@
             };
 
             <span class="comment">// check if there&#39;s more</span>
-            <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_next</span>()).<span class="ident">data</span>;
+            <span class="ident">maybe_credential</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">read_dir_files_next</span>()).<span class="ident">data</span>;
         }
 
         <span class="comment">// ran to completion</span>
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">calculate</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">calculate</span>: <span class="ident">command</span>::<span class="ident">Calculate</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">calculate</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">calculate</span>: <span class="ident">command::Calculate</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
     {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
         <span class="comment">// info_now!(&quot;recv {:?}&quot;, &amp;calculate);</span>
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">credential</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">load_credential</span>(<span class="kw-2">&amp;</span><span class="ident">calculate</span>.<span class="ident">label</span>).<span class="ident">ok_or</span>(<span class="ident">Status</span>::<span class="ident">NotFound</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">credential</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">load_credential</span>(<span class="kw-2">&amp;</span><span class="ident">calculate</span>.<span class="ident">label</span>).<span class="ident">ok_or</span>(<span class="ident">Status::NotFound</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">truncated_digest</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">credential</span>.<span class="ident">kind</span> {
-            <span class="ident">oath</span>::<span class="ident">Kind</span>::<span class="ident">Totp</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">crate</span>::<span class="ident">calculate</span>::<span class="ident">calculate</span>(
+            <span class="ident">oath::Kind::Totp</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="kw">crate</span>::calculate::calculate</span>(
                     <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>,
                     <span class="ident">credential</span>.<span class="ident">algorithm</span>,
                     <span class="ident">calculate</span>.<span class="ident">challenge</span>,
                     <span class="ident">credential</span>.<span class="ident">secret</span>,
                 ),
-            <span class="ident">oath</span>::<span class="ident">Kind</span>::<span class="ident">Hotp</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">oath::Kind::Hotp</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// load-bump counter</span>
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">counter</span>) <span class="op">=</span> <span class="ident">credential</span>.<span class="ident">counter</span> {
 
                     <span class="ident">credential</span>.<span class="ident">counter</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">counter</span> <span class="op">+</span> <span class="number">1</span>);
 
                     <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">filename_for_label</span>(<span class="ident">credential</span>.<span class="ident">label</span>);
-                    <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">write_file</span>(
-                        <span class="ident">Location</span>::<span class="ident">Internal</span>,
+                    <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">write_file</span>(
+                        <span class="ident">Location::Internal</span>,
                         <span class="ident">filename</span>,
                         <span class="ident">postcard_serialize_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">credential</span>).<span class="ident">unwrap</span>(),
                         <span class="prelude-val">None</span>
                     ));
 
-                    <span class="kw">crate</span>::<span class="ident">calculate</span>::<span class="ident">calculate</span>(
+                    <span class="ident"><span class="kw">crate</span>::calculate::calculate</span>(
                         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>,
                         <span class="ident">credential</span>.<span class="ident">algorithm</span>,
                         <span class="kw-2">&amp;</span><span class="ident">counter</span>.<span class="ident">to_be_bytes</span>(),
                         <span class="ident">credential</span>.<span class="ident">secret</span>,
                     )
                 } <span class="kw">else</span> {
-                    <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;HOTP missing its counter&quot;</span>);
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">UnspecifiedPersistentExecutionError</span>);
+                    <span class="macro">debug_now!</span>(<span class="string">&quot;HOTP missing its counter&quot;</span>);
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::UnspecifiedPersistentExecutionError</span>);
                 }
             }
         };
@@ -1314,36 +1310,36 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">validate</span>: <span class="ident">command</span>::<span class="ident">Validate</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">validate</span>: <span class="ident">command::Validate</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span>
     {
-        <span class="kw">let</span> <span class="ident">command</span>::<span class="ident">Validate</span> { <span class="ident">response</span>, <span class="ident">challenge</span> } <span class="op">=</span> <span class="ident">validate</span>;
+        <span class="kw">let</span> <span class="ident">command::Validate</span> { <span class="ident">response</span>, <span class="ident">challenge</span> } <span class="op">=</span> <span class="ident">validate</span>;
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">persistent</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>, <span class="op">|</span><span class="kw">_</span>, <span class="ident">state</span><span class="op">|</span> <span class="ident">state</span>.<span class="ident">authorization_key</span>) {
-            <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;key set: {:?}&quot;</span>, <span class="ident">key</span>);
+            <span class="macro">debug_now!</span>(<span class="string">&quot;key set: {:?}&quot;</span>, <span class="ident">key</span>);
 
             <span class="comment">// 1. verify what the client sent (rotating challenge)</span>
-            <span class="kw">let</span> <span class="ident">verification</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">sign_hmacsha1</span>(<span class="ident">key</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">challenge</span>)).<span class="ident">signature</span>;
+            <span class="kw">let</span> <span class="ident">verification</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">sign_hmacsha1</span>(<span class="ident">key</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">challenge</span>)).<span class="ident">signature</span>;
 
             <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">challenge</span> <span class="op">=</span>
-                <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">random_bytes</span>(<span class="number">8</span>)).<span class="ident">bytes</span>.<span class="ident">as_ref</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
+                <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">random_bytes</span>(<span class="number">8</span>)).<span class="ident">bytes</span>.<span class="ident">as_ref</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
 
             <span class="kw">if</span> <span class="ident">verification</span> <span class="op">!</span><span class="op">=</span> <span class="ident">response</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">IncorrectDataParameter</span>);
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::IncorrectDataParameter</span>);
             }
 
             <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_newly_authorized</span> <span class="op">=</span> <span class="bool-val">true</span>;
 
             <span class="comment">// 2. calculate our response to their challenge</span>
-            <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">sign_hmacsha1</span>(<span class="ident">key</span>, <span class="ident">challenge</span>)).<span class="ident">signature</span>;
+            <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">sign_hmacsha1</span>(<span class="ident">key</span>, <span class="ident">challenge</span>)).<span class="ident">signature</span>;
 
             <span class="ident">reply</span>.<span class="ident">push</span>(<span class="number">0x75</span>).<span class="ident">ok</span>();
             <span class="ident">reply</span>.<span class="ident">push</span>(<span class="number">20</span>).<span class="ident">ok</span>();
             <span class="ident">reply</span>.<span class="ident">extend_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">response</span>).<span class="ident">ok</span>();
-            <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;validated client! client_newly_authorized = {}&quot;</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_newly_authorized</span>);
+            <span class="macro">debug_now!</span>(<span class="string">&quot;validated client! client_newly_authorized = {}&quot;</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_newly_authorized</span>);
             <span class="prelude-val">Ok</span>(())
 
         } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>)
+            <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>)
         }
 
         <span class="comment">// APDU: 00 A3 00 00 20 (AUTHENTICATE)</span>
@@ -1363,22 +1359,22 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clear_password</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
-        <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;clearing password/key&quot;</span>);
+        <span class="macro">debug_now!</span>(<span class="string">&quot;clearing password/key&quot;</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">persistent</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>, <span class="op">|</span><span class="kw">_</span>, <span class="ident">state</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">existing_key</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">authorization_key</span>;
             <span class="ident">state</span>.<span class="ident">authorization_key</span> <span class="op">=</span> <span class="prelude-val">None</span>;
             <span class="ident">existing_key</span>
         }) {
-            <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete</span>(<span class="ident">key</span>));
+            <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete</span>(<span class="ident">key</span>));
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_password</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">set_password</span>: <span class="ident">command</span>::<span class="ident">SetPassword</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_password</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">set_password</span>: <span class="ident">command::SetPassword</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
         <span class="comment">// when there is no password set:</span>
         <span class="comment">// APDU: 00 A4 04 00 07 (SELECT)</span>
@@ -1430,42 +1426,42 @@
         <span class="comment">//             4F B0 29 1A 0E FC 88 46 FA 30 FF A4 C7 1E 51 A5 50 79 9A B8</span>
         <span class="comment">// SW: 90 00</span>
 
-        <span class="macro">info_now</span><span class="macro">!</span>(<span class="string">&quot;entering set password&quot;</span>);
+        <span class="macro">info_now!</span>(<span class="string">&quot;entering set password&quot;</span>);
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">runtime</span>.<span class="ident">client_authorized</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">ConditionsOfUseNotSatisfied</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::ConditionsOfUseNotSatisfied</span>);
         }
 
-        <span class="kw">let</span> <span class="ident">command</span>::<span class="ident">SetPassword</span> { <span class="ident">kind</span>, <span class="ident">algorithm</span>, <span class="ident">key</span>, <span class="ident">challenge</span>, <span class="ident">response</span> } <span class="op">=</span> <span class="ident">set_password</span>;
+        <span class="kw">let</span> <span class="ident">command::SetPassword</span> { <span class="ident">kind</span>, <span class="ident">algorithm</span>, <span class="ident">key</span>, <span class="ident">challenge</span>, <span class="ident">response</span> } <span class="op">=</span> <span class="ident">set_password</span>;
 
-        <span class="macro">info_now</span><span class="macro">!</span>(<span class="string">&quot;just checking&quot;</span>);
-        <span class="kw">if</span> <span class="ident">kind</span> <span class="op">!</span><span class="op">=</span> <span class="ident">oath</span>::<span class="ident">Kind</span>::<span class="ident">Totp</span> <span class="op">|</span><span class="op">|</span> <span class="ident">algorithm</span> <span class="op">!</span><span class="op">=</span> <span class="ident">oath</span>::<span class="ident">Algorithm</span>::<span class="ident">Sha1</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">InstructionNotSupportedOrInvalid</span>);
+        <span class="macro">info_now!</span>(<span class="string">&quot;just checking&quot;</span>);
+        <span class="kw">if</span> <span class="ident">kind</span> <span class="op">!</span><span class="op">=</span> <span class="ident">oath::Kind::Totp</span> <span class="op">|</span><span class="op">|</span> <span class="ident">algorithm</span> <span class="op">!</span><span class="op">=</span> <span class="ident">oath::Algorithm::Sha1</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::InstructionNotSupportedOrInvalid</span>);
         }
 
-        <span class="macro">info_now</span><span class="macro">!</span>(<span class="string">&quot;injecting the key&quot;</span>);
-        <span class="kw">let</span> <span class="ident">tmp_key</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">unsafe_inject_shared_key</span>(
+        <span class="macro">info_now!</span>(<span class="string">&quot;injecting the key&quot;</span>);
+        <span class="kw">let</span> <span class="ident">tmp_key</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">unsafe_inject_shared_key</span>(
             <span class="ident">key</span>,
-            <span class="ident">Location</span>::<span class="ident">Volatile</span>,
+            <span class="ident">Location::Volatile</span>,
         )).<span class="ident">key</span>;
 
-        <span class="kw">let</span> <span class="ident">verification</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">sign_hmacsha1</span>(<span class="ident">tmp_key</span>, <span class="ident">challenge</span>)).<span class="ident">signature</span>;
-        <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete</span>(<span class="ident">tmp_key</span>));
+        <span class="kw">let</span> <span class="ident">verification</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">sign_hmacsha1</span>(<span class="ident">tmp_key</span>, <span class="ident">challenge</span>)).<span class="ident">signature</span>;
+        <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">delete</span>(<span class="ident">tmp_key</span>));
 
         <span class="comment">// not really sure why this is all sent along, I guess some kind of fear of bitrot en-route?</span>
         <span class="kw">if</span> <span class="ident">verification</span> <span class="op">!</span><span class="op">=</span> <span class="ident">response</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status</span>::<span class="ident">IncorrectDataParameter</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Status::IncorrectDataParameter</span>);
         }
 
         <span class="comment">// all-right, we have a new password to set</span>
-        <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="macro">syscall</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">unsafe_inject_shared_key</span>(
+        <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="macro">syscall!</span>(<span class="self">self</span>.<span class="ident">trussed</span>.<span class="ident">unsafe_inject_shared_key</span>(
             <span class="ident">key</span>,
-            <span class="ident">Location</span>::<span class="ident">Internal</span>,
+            <span class="ident">Location::Internal</span>,
         )).<span class="ident">key</span>;
 
         <span class="comment">// self.state::persistent(trussed, |trussed, state| {</span>
         <span class="comment">//     state.authorization_key = Some(key);</span>
         <span class="comment">// });</span>
-        <span class="macro">debug_now</span><span class="macro">!</span>(<span class="string">&quot;storing password/key&quot;</span>);
+        <span class="macro">debug_now!</span>(<span class="string">&quot;storing password/key&quot;</span>);
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">persistent</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">trussed</span>, <span class="op">|</span><span class="kw">_</span>, <span class="ident">state</span><span class="op">|</span> { <span class="ident">state</span>.<span class="ident">authorization_key</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) } );
 
         <span class="comment">// pub struct SetPassword&lt;&#39;l&gt; {</span>
@@ -1483,8 +1479,8 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Deserialize</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Credential</span><span class="op">&lt;</span><span class="lifetime">&#39;l</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">label</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;l</span> [<span class="ident">u8</span>],
-    <span class="kw">pub</span> <span class="ident">kind</span>: <span class="ident">oath</span>::<span class="ident">Kind</span>,
-    <span class="kw">pub</span> <span class="ident">algorithm</span>: <span class="ident">oath</span>::<span class="ident">Algorithm</span>,
+    <span class="kw">pub</span> <span class="ident">kind</span>: <span class="ident">oath::Kind</span>,
+    <span class="kw">pub</span> <span class="ident">algorithm</span>: <span class="ident">oath::Algorithm</span>,
     <span class="kw">pub</span> <span class="ident">digits</span>: <span class="ident">u8</span>,
     <span class="doccomment">/// What we get here (inspecting the client app) may not be the raw K, but K&#39; in HMAC lingo,</span>
     <span class="doccomment">/// i.e., If secret.len() &lt; block size (64B for Sha1/Sha256, 128B for Sha512),</span>
@@ -1518,7 +1514,7 @@
 <span class="comment">// }</span>
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;l</span><span class="op">&gt;</span> <span class="ident">Credential</span><span class="op">&lt;</span><span class="lifetime">&#39;l</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">credential</span>: <span class="kw-2">&amp;</span><span class="ident">command</span>::<span class="ident">Credential</span><span class="op">&lt;</span><span class="lifetime">&#39;l</span><span class="op">&gt;</span>, <span class="ident">key</span>: <span class="ident">KeyId</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">credential</span>: <span class="kw-2">&amp;</span><span class="ident">command::Credential</span><span class="op">&lt;</span><span class="lifetime">&#39;l</span><span class="op">&gt;</span>, <span class="ident">key</span>: <span class="ident">KeyId</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">label</span>: <span class="ident">credential</span>.<span class="ident">label</span>,
             <span class="ident">kind</span>: <span class="ident">credential</span>.<span class="ident">kind</span>,
@@ -1532,28 +1528,29 @@
 }
 
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">iso7816</span>::<span class="ident">App</span> <span class="kw">for</span> <span class="ident">Authenticator</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">aid</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">iso7816</span>::<span class="ident">Aid</span> {
-        <span class="ident">iso7816</span>::<span class="ident">Aid</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw">crate</span>::<span class="ident">YUBICO_OATH_AID</span>)
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">iso7816::App</span> <span class="kw">for</span> <span class="ident">Authenticator</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">aid</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">iso7816::Aid</span> {
+        <span class="ident">iso7816::Aid::new</span>(<span class="kw-2">&amp;</span><span class="ident"><span class="kw">crate</span>::YUBICO_OATH_AID</span>)
     }
 }
 
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;apdu-dispatch&quot;</span>)]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="kw">const</span> <span class="ident">C</span>: <span class="ident">usize</span>, <span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">apdu_dispatch</span>::<span class="ident">app</span>::<span class="ident">App</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Authenticator</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="kw">const</span> <span class="ident">C</span>: <span class="ident">usize</span>, <span class="kw">const</span> <span class="ident">R</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">apdu_dispatch::app::App</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Authenticator</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">client</span>::<span class="ident">Client</span> <span class="op">+</span> <span class="ident">client</span>::<span class="ident">HmacSha1</span> <span class="op">+</span> <span class="ident">client</span>::<span class="ident">HmacSha256</span> <span class="op">+</span> <span class="ident">client</span>::<span class="ident">Sha256</span>,
+    <span class="ident">T</span>: <span class="ident">client::Client</span> <span class="op">+</span> <span class="ident">client::HmacSha1</span> <span class="op">+</span> <span class="ident">client::HmacSha256</span> <span class="op">+</span> <span class="ident">client::Sha256</span>,
 {
-    <span class="kw">fn</span> <span class="ident">select</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">apdu</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816</span>::<span class="ident">Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">select</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">apdu</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816::Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
         <span class="self">self</span>.<span class="ident">respond</span>(<span class="ident">apdu</span>, <span class="ident">reply</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">deselect</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) { <span class="comment">/*self.deselect()*/</span> }
 
-    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="kw">_</span>: <span class="ident">iso7816</span>::<span class="ident">Interface</span>, <span class="ident">apdu</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816</span>::<span class="ident">Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="kw">_</span>: <span class="ident">iso7816::Interface</span>, <span class="ident">apdu</span>: <span class="kw-2">&amp;</span><span class="ident">iso7816::Command</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">reply</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Data</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span> {
         <span class="self">self</span>.<span class="ident">respond</span>(<span class="ident">apdu</span>, <span class="ident">reply</span>)
     }
 }
-</pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="oath_authenticator" data-search-js="../../search-index.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>
+</code></pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="oath_authenticator" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</body></html>
