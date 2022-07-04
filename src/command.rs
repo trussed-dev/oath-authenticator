@@ -384,11 +384,10 @@ impl<'l, const C: usize> TryFrom<&'l iso7816::Command<C>> for Command<'l> {
 impl<'l, const C: usize> TryFrom<&'l Data<C>> for Select<'l> {
     type Error = Status;
     fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
-        // info_now!("comparing {} against {}", hex_str!(data.as_slice()), hex_str!(crate::YUBICO_OATH_AID));
-        Ok(match data.as_slice() {
-            crate::YUBICO_OATH_AID => Self { aid: data },
-            _ => return Err(Status::NotFound),
-        })
+        if crate::YUBICO_OATH_AID.starts_with(data.as_slice()) {
+            return Ok(Self { aid: data});
+        }
+        Err(Status::NotFound)
     }
 }
 

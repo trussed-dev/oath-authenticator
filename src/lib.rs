@@ -19,7 +19,8 @@ pub mod state;
 pub const YUBICO_RID: [u8; 5] = hex!("A000000 527");
 // pub const YUBICO_OTP_PIX: [u8; 3] = hex!("200101");
 // pub const YUBICO_OTP_AID: &[u8] = &hex!("A000000527 2001 01");
-pub const YUBICO_OATH_AID: &[u8] = &hex!("A000000527 2101");// 01");
+pub const YUBICO_OATH_AID: &[u8] = &hex!("A000000527 2101 01");
+pub const YUBICO_OATH_AID_TRUNCATED_LEN: usize = 7;
 
 // class AID(bytes, Enum):
 //     OTP = b'\xa0\x00\x00\x05\x27 \x20\x01'
