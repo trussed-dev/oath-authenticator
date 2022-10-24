@@ -774,3 +774,43 @@ where
         self.respond(apdu, reply)
     }
 }
+
+use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
+use ctaphid_dispatch::command::VendorCommand;
+
+const OTP_CCID: VendorCommand = VendorCommand::H70;
+
+impl<T> hid::App for Authenticator<T>
+    where T: client::Client
+    + client::HmacSha1
+    + client::HmacSha256
+    + client::Sha256,
+{
+    fn commands(&self) -> &'static [HidCommand] {
+        &[
+            HidCommand::Vendor(OTP_CCID),
+        ]
+    }
+
+    fn call(&mut self, command: HidCommand, input_data: &Message, response: &mut Message) -> hid::AppResult {
+        const MAX_COMMAND_LENGTH: usize = 255;
+        match command {
+            HidCommand::Vendor(OTP_CCID) => {
+                let ctap_to_iso7816_command = iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data)
+                    .map_err(|e| {
+                        debug_now!("ISO conversion error: {:?}", e);
+                        hid::Error::InvalidCommand
+                    })?;
+                self.respond(&ctap_to_iso7816_command, response)
+                    .map_err(|e| {
+                        debug_now!("OTP command execution error: {:?}", e);
+                        hid::Error::InvalidCommand
+                    })?;
+            }
+            _ => {
+                return Err(hid::Error::InvalidCommand);
+            }
+        }
+        Ok(())
+    }
+}
