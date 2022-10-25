@@ -501,11 +501,11 @@ where
                         postcard_serialize_bytes(&credential).unwrap(),
                         None
                     ));
-
+                    let counter_long: u64 = counter.into();
                     crate::calculate::calculate(
                         &mut self.trussed,
                         credential.algorithm,
-                        &counter.to_be_bytes(),
+                        &counter_long.to_be_bytes(),
                         credential.secret,
                     )
                 } else {
