@@ -1,0 +1,8 @@
+@startyaml
+Header:
+    - TOTP [0x76, 0x05]
+    - HOTP [0x77, 0x00]
+    - Digits 6|8
+Digest:
+    - RFC digest sum
+@endyaml
