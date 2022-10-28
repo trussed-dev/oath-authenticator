@@ -490,25 +490,8 @@ where
                     credential.secret,
                 ),
             oath::Kind::Hotp => {
-                // load-bump counter
                 if let Some(counter) = credential.counter {
-
-                    credential.counter = Some(counter + 1);
-
-                    let filename = self.filename_for_label(credential.label);
-                    syscall!(self.trussed.write_file(
-                        Location::Internal,
-                        filename,
-                        postcard_serialize_bytes(&credential).unwrap(),
-                        None
-                    ));
-                    let counter_long: u64 = counter.into();
-                    crate::calculate::calculate(
-                        &mut self.trussed,
-                        credential.algorithm,
-                        &counter_long.to_be_bytes(),
-                        credential.secret,
-                    )
+                    self.calculate_hotp_code_and_bump_counter(credential, counter)
                 } else {
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
@@ -713,25 +696,8 @@ where
 
             // Run the usual HOTP code calculation
             oath::Kind::Hotp => {
-                // load-bump counter
                 if let Some(counter) = credential.counter {
-
-                    credential.counter = Some(counter + 1);
-
-                    let filename = self.filename_for_label(credential.label);
-                    syscall!(self.trussed.write_file(
-                        Location::Internal,
-                        filename,
-                        postcard_serialize_bytes(&credential).unwrap(),
-                        None
-                    ));
-                    let counter_long: u64 = counter.into();
-                    crate::calculate::calculate(
-                        &mut self.trussed,
-                        credential.algorithm,
-                        &counter_long.to_be_bytes(),
-                        credential.secret,
-                    )
+                    self.calculate_hotp_code_and_bump_counter(credential, counter)
                 } else {
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
@@ -770,6 +736,26 @@ where
         reply.push(0x77).unwrap();
         reply.push(0).unwrap();
         Ok(())
+    }
+
+    fn calculate_hotp_code_and_bump_counter(&mut self, mut credential: Credential, counter: u32) -> [u8; 4] {
+        // load-bump counter
+        credential.counter = Some(counter + 1);
+
+        let filename = self.filename_for_label(credential.label);
+        syscall!(self.trussed.write_file(
+                        Location::Internal,
+                        filename,
+                        postcard_serialize_bytes(&credential).unwrap(),
+                        None
+                    ));
+        let counter_long: u64 = counter.into();
+        crate::calculate::calculate(
+            &mut self.trussed,
+            credential.algorithm,
+            &counter_long.to_be_bytes(),
+            credential.secret,
+        )
     }
 }
 
