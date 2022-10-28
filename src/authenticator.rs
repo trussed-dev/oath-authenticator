@@ -1,14 +1,21 @@
 use core::convert::TryInto;
 
+#[cfg(feature = "ctaphid-dispatch")]
+use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
+#[cfg(feature = "ctaphid-dispatch")]
+use ctaphid_dispatch::command::VendorCommand;
+
 use flexiber::{Encodable, EncodableHeapless};
 use iso7816::{Data, Status};
 use serde::{Deserialize, Serialize};
 use trussed::{
-    client, syscall, try_syscall,
-    postcard_deserialize, postcard_serialize, postcard_serialize_bytes,
+    client, postcard_deserialize, postcard_serialize,
+    postcard_serialize_bytes, syscall, try_syscall,
     types::{KeyId, Location, PathBuf},
 };
+
 use crate::{command, Command, oath, state::{CommandState, State}};
+use crate::command::VerifyCode;
 
 /// The TOTP authenticator Trussed® app.
 pub struct Authenticator<T> {
@@ -682,10 +689,13 @@ where
         Ok(())
     }
 
+    /// Verify the HOTP code coming from a PC host, and show visually to user,
+    /// that the code is correct or not, with a green or red LED respectively.
+    /// Does not need authorization by design.
+    /// ```
+    ///
+    /// ```
     fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
-        // Verify the HOTP code coming from a PC host, and show visually to user,
-        // that the code is correct or not, with a green or red LED respectively.
-        // Does not need authorization by design.
 
         // TODO DESIGN limit name to a single one?
         let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
@@ -828,12 +838,10 @@ where
     }
 }
 
-use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
-use ctaphid_dispatch::command::VendorCommand;
-use crate::command::VerifyCode;
-
+#[cfg(feature = "ctaphid-dispatch")]
 const OTP_CCID: VendorCommand = VendorCommand::H70;
 
+#[cfg(feature = "ctaphid-dispatch")]
 impl<T> hid::App for Authenticator<T>
     where T: client::Client
     + client::HmacSha1
