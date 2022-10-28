@@ -193,6 +193,7 @@ where
             Command::Validate(validate) => self.validate(validate, reply),
             Command::SetPassword(set_password) => self.set_password(set_password),
             Command::ClearPassword => self.clear_password(),
+            Command::VerifyCode(verify_code) => self.verify_code(verify_code, reply),
         }
     }
 
@@ -479,7 +480,7 @@ where
         }
         // info_now!("recv {:?}", &calculate);
 
-        let mut credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
+        let credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
 
         let truncated_digest = match credential.kind {
             oath::Kind::Totp => crate::calculate::calculate(
@@ -698,6 +699,78 @@ where
         Ok(())
     }
 
+    fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
+        // Verify the HOTP code coming from a PC host, and show visually to user,
+        // that the code is correct or not with green and red LED respectively.
+        // Does not need authorization by design.
+
+        // TODO DESIGN limit name to a single one?
+        let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
+
+        // TODO Calculate and check N codes in the future, until Success or N is reached
+        let truncated_digest = match credential.kind {
+            oath::Kind::Totp => return Err(Status::ConditionsOfUseNotSatisfied),
+
+            // Run the usual HOTP code calculation
+            oath::Kind::Hotp => {
+                // load-bump counter
+                if let Some(counter) = credential.counter {
+
+                    credential.counter = Some(counter + 1);
+
+                    let filename = self.filename_for_label(credential.label);
+                    syscall!(self.trussed.write_file(
+                        Location::Internal,
+                        filename,
+                        postcard_serialize_bytes(&credential).unwrap(),
+                        None
+                    ));
+                    let counter_long: u64 = counter.into();
+                    crate::calculate::calculate(
+                        &mut self.trussed,
+                        credential.algorithm,
+                        &counter_long.to_be_bytes(),
+                        credential.secret,
+                    )
+                } else {
+                    debug_now!("HOTP missing its counter");
+                    return Err(Status::UnspecifiedPersistentExecutionError);
+                }
+            }
+        };
+
+        let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
+        let code = (truncated_code & 0x7FFFFFFF) % 10u32.pow(credential.digits as _);
+
+        // Convert the incoming code from string to u32.
+        // No need for the zero left-pad, or alloc for the format! macro this way.
+        if args.response.len() > credential.digits as usize {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
+        let code_in = {
+            let mut code_in = 0;
+            for e in args.response.iter().rev().enumerate() {
+                let (i, mut digit) = e;
+                let digit_value = (digit - '0' as u8) as u32;
+                code_in += 10u32.pow(i as u32)* digit_value;
+            }
+            code_in
+        };
+
+        if code != code_in {
+            // Failed verification
+            // TODO blink red LED infinite times, highest priority
+            return Err(Status::VerificationFailed);
+        }
+
+        // TODO blink green LED for 10 seconds, highest priority
+
+        // Verification passed
+        // Return "No response". Communicate only through error codes.
+        reply.push(0x77).unwrap();
+        reply.push(0).unwrap();
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -777,6 +850,7 @@ where
 
 use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
 use ctaphid_dispatch::command::VendorCommand;
+use crate::command::VerifyCode;
 
 const OTP_CCID: VendorCommand = VendorCommand::H70;
 

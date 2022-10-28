@@ -27,6 +27,8 @@ pub enum Command<'l> {
     SetPassword(SetPassword<'l>),
     /// Validate the password (both ways).
     Validate(Validate<'l>),
+    /// Reverse HOTP validation
+    VerifyCode(VerifyCode<'l>),
 }
 
 /// TODO: change into enum
@@ -118,6 +120,30 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Validate<'l> {
         let challenge = slice.as_bytes();
 
         Ok(Validate { challenge, response })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VerifyCode<'l> {
+    pub label: &'l [u8],
+    pub response: &'l [u8],
+}
+
+impl<'l, const C: usize> TryFrom<&'l Data<C>> for VerifyCode<'l> {
+    type Error = Status;
+    fn try_from(data: &'l Data<C>) -> Result<Self, Self::Error> {
+        use flexiber::TaggedSlice;
+        let mut decoder = flexiber::Decoder::new(data);
+
+        let first: TaggedSlice = decoder.decode().unwrap();
+        assert!(first.tag() == (oath::Tag::Name as u8).try_into().unwrap());
+        let label = first.as_bytes();
+
+        let slice: TaggedSlice = decoder.decode().unwrap();
+        assert!(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap());
+        let response = slice.as_bytes();
+
+        Ok(VerifyCode { label, response })
     }
 }
 
@@ -375,6 +401,7 @@ impl<'l, const C: usize> TryFrom<&'l iso7816::Command<C>> for Command<'l> {
                     }
                 }
                 (0x00, oath::Instruction::Validate, 0x00, 0x00) => Self::Validate(Validate::try_from(data)?),
+                (0x00, oath::Instruction::VerifyCode, 0x00, 0x00) => Self::VerifyCode(VerifyCode::try_from(data)?),
                 _ => return Err(Status::InstructionNotSupportedOrInvalid),
             })
         }
