@@ -684,7 +684,7 @@ where
 
     fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
         // Verify the HOTP code coming from a PC host, and show visually to user,
-        // that the code is correct or not with green and red LED respectively.
+        // that the code is correct or not, with a green or red LED respectively.
         // Does not need authorization by design.
 
         // TODO DESIGN limit name to a single one?
@@ -713,6 +713,8 @@ where
         if args.response.len() > credential.digits as usize {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
+        // TODO DESIGN validate input data without using up attempt?
+        // TODO DESIGN choose format for the incoming OTP code (currently: string; u64 int better?)
         let code_in = convert_string_to_integer(args.response)?;
 
         if code != code_in {
@@ -875,13 +877,13 @@ impl<T> hid::App for Authenticator<T>
 /// assert_eq!(convert_string_to_integer(b"123"), Ok(123));
 /// assert_eq!(convert_string_to_integer(b"12345678"), Ok(12345678));
 /// ```
-
+/// Abort on strings longer than 8 bytes.
 /// ```
 /// use iso7816::Status;
 /// # use oath_authenticator::authenticator::convert_string_to_integer;
 /// assert_eq!(convert_string_to_integer(b"123123123123"), Err(Status::ConditionsOfUseNotSatisfied));
 /// ```
-
+/// Abort on invalid numbers.
 /// ```
 /// # use iso7816::Status;
 /// # use oath_authenticator::authenticator::convert_string_to_integer;
