@@ -498,7 +498,7 @@ where
                 ),
             oath::Kind::Hotp => {
                 if let Some(counter) = credential.counter {
-                    self.calculate_hotp_code_and_bump_counter(credential, counter)
+                    self.calculate_hotp_digest_and_bump_counter(credential, counter)
                 } else {
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
@@ -692,31 +692,23 @@ where
     /// Verify the HOTP code coming from a PC host, and show visually to user,
     /// that the code is correct or not, with a green or red LED respectively.
     /// Does not need authorization by design.
+    ///
+    /// https://github.com/Nitrokey/nitrokey-hotp-verification#verifying-hotp-code
+    /// Solution contains a mean to avoid desynchronization between the host's and device's counters. Device calculates up to 9 values ahead of its current counter to find the matching code (in total it calculates HOTP code for 10 subsequent counter positions). In case:
+    ///
+    /// - no code would match - the on-device counter will not be changed;
+    /// - code would match, but with some counter's offset (up to 9) - the on-device counter will be set to matched code-generated HOTP counter and incremented by 1;
+    /// - code would match, and the code matches counter without offset - the counter will be incremented by 1.
+    ///
+    /// Device will stop verifying the HOTP codes in case, when the difference between the host and on-device counters will be greater or equal to 10.
+    ///
     /// ```
     ///
     /// ```
     fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
-
+        const COUNTER_WINDOW_SIZE: u32 = 9;
         // TODO DESIGN limit name to a single one?
         let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
-
-        // TODO Calculate and check N codes in the future, until Success or N is reached
-        let truncated_digest = match credential.kind {
-            oath::Kind::Totp => return Err(Status::ConditionsOfUseNotSatisfied),
-
-            // Run the usual HOTP code calculation
-            oath::Kind::Hotp => {
-                if let Some(counter) = credential.counter {
-                    self.calculate_hotp_code_and_bump_counter(credential, counter)
-                } else {
-                    debug_now!("HOTP missing its counter");
-                    return Err(Status::UnspecifiedPersistentExecutionError);
-                }
-            }
-        };
-
-        let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
-        let code = (truncated_code & 0x7FFFFFFF) % 10u32.pow(credential.digits as _);
 
         // Convert the incoming code from string to u32.
         // No need for the zero left-pad, or alloc for the format! macro this way.
@@ -727,13 +719,38 @@ where
         // TODO DESIGN choose format for the incoming OTP code (currently: string; u64 int better?)
         let code_in = convert_string_to_integer(args.response)?;
 
-        if code != code_in {
+
+        // TODO Calculate and check N codes in the future, until Success or N is reached
+        let current_counter = match credential.kind {
+            oath::Kind::Totp => return Err(Status::ConditionsOfUseNotSatisfied),
+            oath::Kind::Hotp => {
+                if let Some(counter) = credential.counter {
+                    counter
+                } else {
+                    debug_now!("HOTP missing its counter");
+                    return Err(Status::UnspecifiedPersistentExecutionError);
+                }
+            }
+        };
+        let mut found = None;
+        for offset in 0..=COUNTER_WINDOW_SIZE {
+            // TODO DESIGN allow to overflow, saturate or abort?
+            let counter = current_counter.saturating_add(offset);
+            let code = self.calculate_hotp_code_for_counter(credential, counter);
+            if code == code_in {
+                found = Some(counter);
+                break;
+            }
+        }
+
+        if found.is_none() {
             // Failed verification
             // TODO blink red LED infinite times, highest priority
             return Err(Status::VerificationFailed);
         }
 
         // TODO blink green LED for 10 seconds, highest priority
+        self.bump_counter_for_cred(credential, found.unwrap());
 
         // Verification passed
         // Return "No response". Communicate only through error codes.
@@ -742,10 +759,24 @@ where
         Ok(())
     }
 
-    fn calculate_hotp_code_and_bump_counter(&mut self, mut credential: Credential, counter: u32) -> [u8; 4] {
-        // load-bump counter
-        credential.counter = Some(counter + 1);
+    fn calculate_hotp_code_for_counter(&mut self, credential: Credential, counter: u32) -> u32 {
+        let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter);
+        let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
+        let code = (truncated_code & 0x7FFFFFFF) % 10u32.pow(credential.digits as _);
+        debug_now!("Code for ({:?},{}): {}", credential.label, counter, code);
+        code
+    }
 
+    fn calculate_hotp_digest_and_bump_counter(&mut self, mut credential: Credential, counter: u32) -> [u8; 4] {
+        self.bump_counter_for_cred(credential, counter);
+        credential.counter = Some(counter + 1);
+        self.calculate_hotp_digest_for_counter(credential, counter)
+    }
+
+    fn bump_counter_for_cred(&mut self, mut credential: Credential, counter: u32) {
+        // TODO DESIGN allow to overflow, saturate or abort?
+        credential.counter = Some(counter.saturating_add(1));
+        // load-bump counter
         let filename = self.filename_for_label(credential.label);
         syscall!(self.trussed.write_file(
                         Location::Internal,
@@ -753,6 +784,9 @@ where
                         postcard_serialize_bytes(&credential).unwrap(),
                         None
                     ));
+    }
+
+    fn calculate_hotp_digest_for_counter(&mut self,  credential: Credential, counter: u32) -> [u8; 4] {
         let counter_long: u64 = counter.into();
         crate::calculate::calculate(
             &mut self.trussed,
