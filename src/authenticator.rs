@@ -1,8 +1,8 @@
 use core::convert::TryInto;
 
-#[cfg(feature = "ctaphid-dispatch")]
+#[cfg(feature = "ctaphid")]
 use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
-#[cfg(feature = "ctaphid-dispatch")]
+#[cfg(feature = "ctaphid")]
 use ctaphid_dispatch::command::VendorCommand;
 
 use flexiber::{Encodable, EncodableHeapless};
@@ -872,10 +872,10 @@ where
     }
 }
 
-#[cfg(feature = "ctaphid-dispatch")]
+#[cfg(feature = "ctaphid")]
 const OTP_CCID: VendorCommand = VendorCommand::H70;
 
-#[cfg(feature = "ctaphid-dispatch")]
+#[cfg(feature = "ctaphid")]
 impl<T> hid::App for Authenticator<T>
     where T: client::Client
     + client::HmacSha1
