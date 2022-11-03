@@ -893,13 +893,13 @@ impl<T> hid::App for Authenticator<T>
         match command {
             HidCommand::Vendor(OTP_CCID) => {
                 let ctap_to_iso7816_command = iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data)
-                    .map_err(|e| {
-                        debug_now!("ISO conversion error: {:?}", e);
+                    .map_err(|_e| {
+                        debug_now!("ISO conversion error: {:?}", _e);
                         hid::Error::InvalidCommand
                     })?;
                 self.respond(&ctap_to_iso7816_command, response)
-                    .map_err(|e| {
-                        debug_now!("OTP command execution error: {:?}", e);
+                    .map_err(|_e| {
+                        debug_now!("OTP command execution error: {:?}", _e);
                         hid::Error::InvalidCommand
                     })?;
             }
