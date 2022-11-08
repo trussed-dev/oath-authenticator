@@ -697,6 +697,7 @@ where
     /// Solution contains a mean to avoid desynchronization between the host's and device's counters. Device calculates up to 9 values ahead of its current counter to find the matching code (in total it calculates HOTP code for 10 subsequent counter positions). In case:
     ///
     /// - no code would match - the on-device counter will not be changed;
+    /// - incoming code parsing would fail - the on-device counter will not be changed;
     /// - code would match, but with some counter's offset (up to 9) - the on-device counter will be set to matched code-generated HOTP counter and incremented by 1;
     /// - code would match, and the code matches counter without offset - the counter will be incremented by 1.
     ///
@@ -707,20 +708,19 @@ where
     /// ```
     fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
         const COUNTER_WINDOW_SIZE: u32 = 9;
-        // TODO DESIGN limit name to a single one?
+        // TODO DESIGN allow to use any credential this way? or limit usage to this operation during credential creation?
         let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
 
+        // TODO move to u64 integer
         // Convert the incoming code from string to u32.
         // No need for the zero left-pad, or alloc for the format! macro this way.
         if args.response.len() > credential.digits as usize {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
-        // TODO DESIGN validate input data without using up attempt?
-        // TODO DESIGN choose format for the incoming OTP code (currently: string; u64 int better?)
+        // Validate input data without using up attempt
         let code_in = convert_string_to_integer(args.response)?;
 
 
-        // TODO Calculate and check N codes in the future, until Success or N is reached
         let current_counter = match credential.kind {
             oath::Kind::Totp => return Err(Status::ConditionsOfUseNotSatisfied),
             oath::Kind::Hotp => {
@@ -734,7 +734,8 @@ where
         };
         let mut found = None;
         for offset in 0..=COUNTER_WINDOW_SIZE {
-            // TODO DESIGN allow to overflow, saturate or abort?
+            // TODO Do abort with error on the max value, so these could not be pregenerated,
+            // and returned to user after overflow, or the same code used each time
             let counter = current_counter.saturating_add(offset);
             let code = self.calculate_hotp_code_for_counter(credential, counter);
             if code == code_in {
@@ -774,7 +775,8 @@ where
     }
 
     fn bump_counter_for_cred(&mut self, mut credential: Credential, counter: u32) {
-        // TODO DESIGN allow to overflow, saturate or abort?
+        // TODO Do abort with error on the max value, so these could not be pregenerated,
+        // and returned to user after overflow, or the same code used each time
         credential.counter = Some(counter.saturating_add(1));
         // load-bump counter
         let filename = self.filename_for_label(credential.label);
