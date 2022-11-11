@@ -51,6 +51,7 @@ impl TryFrom<u8> for Algorithm {
 pub enum Kind {
     Hotp = 0x10,
     Totp = 0x20,
+    HotpReverse = 0x30,
 }
 
 impl TryFrom<u8> for Kind {
@@ -59,6 +60,7 @@ impl TryFrom<u8> for Kind {
         Ok(match byte & 0xf0 {
             0x10 => Kind::Hotp,
             0x20 => Kind::Totp,
+            0x30 => Kind::HotpReverse,
             _ => return Err(Self::Error::IncorrectDataParameter),
         })
     }

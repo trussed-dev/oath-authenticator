@@ -17,6 +17,7 @@ use trussed::{
 
 use crate::{command, Command, oath, state::{CommandState, State}};
 use crate::command::VerifyCode;
+use crate::oath::Kind;
 
 /// The TOTP authenticator Trussed® app.
 pub struct Authenticator<T> {
@@ -508,6 +509,9 @@ where
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
                 }
+            },
+            Kind::HotpReverse => {
+                return Err(Status::SecurityStatusNotSatisfied);
             }
         };
 
@@ -713,7 +717,6 @@ where
     /// ```
     fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
         const COUNTER_WINDOW_SIZE: u32 = 9;
-        // TODO DESIGN allow to use any credential this way? or limit usage to this operation during credential creation?
         let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
 
         if credential.touch_required {
@@ -731,15 +734,15 @@ where
 
 
         let current_counter = match credential.kind {
-            oath::Kind::Totp => return Err(Status::ConditionsOfUseNotSatisfied),
-            oath::Kind::Hotp => {
+            oath::Kind::HotpReverse => {
                 if let Some(counter) = credential.counter {
                     counter
                 } else {
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
                 }
-            }
+            },
+            _ => return Err(Status::ConditionsOfUseNotSatisfied),
         };
         let mut found = None;
         for offset in 0..=COUNTER_WINDOW_SIZE {

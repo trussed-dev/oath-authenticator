@@ -329,7 +329,8 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Register<'l> {
         let mut counter = None;
         // kind::Hotp and valid u32 starting counter should be more tightly tied together on a
         // type level
-        if kind == oath::Kind::Hotp {
+        // if kind == oath::Kind::Hotp {
+        if matches!(kind, oath::Kind::Hotp | oath::Kind::HotpReverse ){
             // when the counter is not specified or set to zero, ykman does not send it
             counter = Some(0);
             if let Ok(last) = TaggedSlice::decode(&mut decoder) {
