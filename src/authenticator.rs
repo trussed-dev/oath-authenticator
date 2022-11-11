@@ -1,4 +1,5 @@
 use core::convert::TryInto;
+use core::time::Duration;
 
 #[cfg(feature = "ctaphid")]
 use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
@@ -489,6 +490,10 @@ where
 
         let credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
 
+        if credential.touch_required {
+            self.user_present()?;
+        }
+
         let truncated_digest = match credential.kind {
             oath::Kind::Totp => crate::calculate::calculate(
                     &mut self.trussed,
@@ -711,6 +716,10 @@ where
         // TODO DESIGN allow to use any credential this way? or limit usage to this operation during credential creation?
         let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
 
+        if credential.touch_required {
+            self.user_present()?;
+        }
+
         // TODO move to u64 integer
         // Convert the incoming code from string to u32.
         // No need for the zero left-pad, or alloc for the format! macro this way.
@@ -746,12 +755,12 @@ where
 
         if found.is_none() {
             // Failed verification
-            // TODO blink red LED infinite times, highest priority
+            self.wink_bad();
             return Err(Status::VerificationFailed);
         }
 
-        // TODO blink green LED for 10 seconds, highest priority
         self.bump_counter_for_cred(credential, found.unwrap());
+        self.wink_good();
 
         // Verification passed
         // Return "No response". Communicate only through error codes.
@@ -788,7 +797,7 @@ where
                     ));
     }
 
-    fn calculate_hotp_digest_for_counter(&mut self,  credential: Credential, counter: u32) -> [u8; 4] {
+    fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> [u8; 4] {
         let counter_long: u64 = counter.into();
         crate::calculate::calculate(
             &mut self.trussed,
@@ -796,6 +805,27 @@ where
             &counter_long.to_be_bytes(),
             credential.secret,
         )
+    }
+
+    fn user_present(
+        &mut self,
+    ) -> Result {
+        use crate::UP_TIMEOUT_MILLISECONDS;
+        let result = syscall!(self.trussed.confirm_user_present(UP_TIMEOUT_MILLISECONDS)).result;
+        result.map_err(|err| match err {
+            trussed::types::consent::Error::TimedOut => Status::SecurityStatusNotSatisfied,
+            _ => Status::UnspecifiedPersistentExecutionError,
+        })
+    }
+
+    fn wink_bad(&mut self) {
+        // TODO blink red LED infinite times, highest priority
+        syscall!(self.trussed.wink(Duration::from_secs(1000)));
+    }
+
+    fn wink_good(&mut self) {
+        // TODO blink green LED for 10 seconds, highest priority
+        syscall!(self.trussed.wink(Duration::from_secs(10)));
     }
 }
 
