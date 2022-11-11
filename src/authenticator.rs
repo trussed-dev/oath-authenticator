@@ -930,7 +930,7 @@ impl<T> hid::App for Authenticator<T>
                 let ctap_to_iso7816_command = iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data)
                     .map_err(|_e| {
                         debug_now!("ISO conversion error: {:?}", _e);
-                        hid::Error::InvalidCommand
+                        hid::Error::InvalidLength
                     })?;
                 self.respond(&ctap_to_iso7816_command, response)
                     .map_err(|_e| {
