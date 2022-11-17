@@ -126,7 +126,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Validate<'l> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct VerifyCode<'l> {
     pub label: &'l [u8],
-    pub response: &'l [u8],
+    pub response: u32,
 }
 
 impl<'l, const C: usize> TryFrom<&'l Data<C>> for VerifyCode<'l> {
@@ -141,7 +141,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for VerifyCode<'l> {
 
         let slice: TaggedSlice = decoder.decode().unwrap();
         assert!(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap());
-        let response = slice.as_bytes();
+        let response = u32::from_be_bytes(slice.as_bytes().try_into().map_err(|_| Status::ConditionsOfUseNotSatisfied )?);
 
         Ok(VerifyCode { label, response })
     }

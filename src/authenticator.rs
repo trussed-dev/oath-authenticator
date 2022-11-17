@@ -724,15 +724,7 @@ where
             self.user_present()?;
         }
 
-        // TODO move to u64 integer
-        // Convert the incoming code from string to u32.
-        // No need for the zero left-pad, or alloc for the format! macro this way.
-        if args.response.len() > credential.digits as usize {
-            return Err(Status::ConditionsOfUseNotSatisfied);
-        }
-        // Validate input data without using up attempt
-        let code_in = convert_string_to_integer(args.response)?;
-
+        let code_in = args.response;
 
         let current_counter = match credential.kind {
             oath::Kind::HotpReverse => {
@@ -953,46 +945,3 @@ impl<T> hid::App for Authenticator<T>
     }
 }
 
-
-/// Helper function to convert number sent as string to its value.
-/// ### Examples
-/// ```
-/// # use oath_authenticator::authenticator::convert_string_to_integer;
-/// assert_eq!(convert_string_to_integer(b"123"), Ok(123));
-/// assert_eq!(convert_string_to_integer(b"12345678"), Ok(12345678));
-/// ```
-/// Abort on strings longer than 8 bytes.
-/// ```
-/// use iso7816::Status;
-/// # use oath_authenticator::authenticator::convert_string_to_integer;
-/// assert_eq!(convert_string_to_integer(b"123123123123"), Err(Status::ConditionsOfUseNotSatisfied));
-/// ```
-/// Abort on invalid numbers.
-/// ```
-/// # use iso7816::Status;
-/// # use oath_authenticator::authenticator::convert_string_to_integer;
-/// assert_eq!(convert_string_to_integer(b"rubbish"), Err(Status::ConditionsOfUseNotSatisfied));
-/// assert_eq!(convert_string_to_integer(b"123h"), Err(Status::ConditionsOfUseNotSatisfied));
-/// ```
-pub fn convert_string_to_integer(str: &[u8]) -> iso7816::Result<u32> {
-    if str.len() > 8 {
-        // Handle small codes only for now
-        return Err(Status::ConditionsOfUseNotSatisfied);
-    }
-    let mut number = 0u32;
-    for e in str.iter().rev().enumerate() {
-        let (i, digit) = e;
-        if digit < &('0' as u8) || digit > &('9' as u8) {
-            // Do not allow characters outside the 0-9 range
-            return Err(Status::ConditionsOfUseNotSatisfied);
-        }
-        let digit_value = (digit - '0' as u8) as u32;
-        // Use saturating operations to avoid overflow and random values coming from it
-        number = number.saturating_add(
-            digit_value.saturating_mul(
-                10u32.pow(i as u32)
-            )
-        );
-    }
-    Ok(number)
-}
