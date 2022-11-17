@@ -712,10 +712,6 @@ where
     /// - code would match, and the code matches counter without offset - the counter will be incremented by 1.
     ///
     /// Device will stop verifying the HOTP codes in case, when the difference between the host and on-device counters will be greater or equal to 10.
-    ///
-    /// ```
-    ///
-    /// ```
     fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
         const COUNTER_WINDOW_SIZE: u32 = 9;
         let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
@@ -790,6 +786,7 @@ where
         );
         // load-bump counter
         let filename = self.filename_for_label(credential.label);
+        // TODO: use try_syscall
         syscall!(self.trussed.write_file(
                         Location::Internal,
                         filename,
