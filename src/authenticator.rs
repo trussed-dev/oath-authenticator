@@ -505,7 +505,7 @@ where
                 ),
             oath::Kind::Hotp => {
                 if let Some(counter) = credential.counter {
-                    self.calculate_hotp_digest_and_bump_counter(credential, counter)
+                    self.calculate_hotp_digest_and_bump_counter(credential, counter)?
                 } else {
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
@@ -747,10 +747,10 @@ where
         };
         let mut found = None;
         for offset in 0..=COUNTER_WINDOW_SIZE {
-            // TODO Do abort with error on the max value, so these could not be pregenerated,
+            // Do abort with error on the max value, so these could not be pregenerated,
             // and returned to user after overflow, or the same code used each time
-            let counter = current_counter.saturating_add(offset);
-            let code = self.calculate_hotp_code_for_counter(credential, counter);
+            let counter = current_counter.checked_add(offset).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?;
+            let code = self.calculate_hotp_code_for_counter(credential, counter).map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
             if code == code_in {
                 found = Some(counter);
                 break;
@@ -763,7 +763,7 @@ where
             return Err(Status::VerificationFailed);
         }
 
-        self.bump_counter_for_cred(credential, found.unwrap());
+        self.bump_counter_for_cred(credential, found.unwrap())?;
         self.wink_good();
 
         // Verification passed
@@ -773,24 +773,29 @@ where
         Ok(())
     }
 
-    fn calculate_hotp_code_for_counter(&mut self, credential: Credential, counter: u32) -> u32 {
+    fn calculate_hotp_code_for_counter(&mut self, credential: Credential, counter: u32) -> iso7816::Result<u32> {
         let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter);
         let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
         let code = (truncated_code & 0x7FFFFFFF) % 10u32.pow(credential.digits as _);
         debug_now!("Code for ({:?},{}): {}", credential.label, counter, code);
-        code
+        Ok(code)
     }
 
-    fn calculate_hotp_digest_and_bump_counter(&mut self, mut credential: Credential, counter: u32) -> [u8; 4] {
-        self.bump_counter_for_cred(credential, counter);
-        credential.counter = Some(counter + 1);
-        self.calculate_hotp_digest_for_counter(credential, counter)
+    fn calculate_hotp_digest_and_bump_counter(&mut self, mut credential: Credential, counter: u32) -> iso7816::Result<[u8; 4]> {
+        self.bump_counter_for_cred(credential, counter)?;
+        credential.counter = Some(
+            counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
+        );
+        let res = self.calculate_hotp_digest_for_counter(credential, counter);
+        Ok(res)
     }
 
-    fn bump_counter_for_cred(&mut self, mut credential: Credential, counter: u32) {
-        // TODO Do abort with error on the max value, so these could not be pregenerated,
+    fn bump_counter_for_cred(&mut self, mut credential: Credential, counter: u32) -> Result {
+        // Do abort with error on the max value, so these could not be pregenerated,
         // and returned to user after overflow, or the same code used each time
-        credential.counter = Some(counter.saturating_add(1));
+        credential.counter = Some(
+            counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
+        );
         // load-bump counter
         let filename = self.filename_for_label(credential.label);
         syscall!(self.trussed.write_file(
@@ -799,6 +804,7 @@ where
                         postcard_serialize_bytes(&credential).unwrap(),
                         None
                     ));
+        Ok(())
     }
 
     fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> [u8; 4] {
