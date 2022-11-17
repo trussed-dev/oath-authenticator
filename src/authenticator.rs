@@ -188,6 +188,7 @@ where
                 Command::Select(_) => {}
                 Command::Validate(_) => {}
                 Command::Reset => {}
+                Command::VerifyCode(_) => {}
                 _ => return Err(Status::ConditionsOfUseNotSatisfied),
             }
         }
