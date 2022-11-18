@@ -1,0 +1,19 @@
+@startyaml
+cls: 0
+ins:
+    - Put
+    - Delete
+    - Reset
+    - List
+    - Calculate
+p1:
+    - 0x00
+    - 0xDE (Reset)
+p2:
+    - 0x00
+    - 0xAD (Reset)
+    - 0x01 (Calculate)
+data:
+    - ISO7816 length
+    - TLV encoded data
+@endyaml

@@ -1,0 +1,5 @@
+sequenceDiagram
+    Python Client ->> FIDO2 device : CTAPHID message
+    FIDO2 device ->> Oath Authenticator : ISO7816 message
+    Oath Authenticator -->> FIDO2 device   : Response
+    FIDO2 device -->> Python Client : Response
