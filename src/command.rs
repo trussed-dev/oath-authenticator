@@ -4,6 +4,7 @@ use iso7816::{Data, Status};
 
 use crate::oath;
 
+const FAILED_PARSING_ERROR: Status = iso7816::Status::IncorrectDataParameter;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Command<'l> {
@@ -70,7 +71,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for SetPassword<'l> {
 
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
-        let slice: TaggedSlice = decoder.decode().unwrap();
+        let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(slice.tag() == (oath::Tag::Key as u8).try_into().unwrap());
         let (key_header, key) = slice.as_bytes().split_at(1);
 
@@ -79,12 +80,12 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for SetPassword<'l> {
         let algorithm: oath::Algorithm = key_header[0].try_into()?;
         // assert!(algorithm == oath::Algorithm::Sha1);
 
-        let slice: TaggedSlice = decoder.decode().unwrap();
+        let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(slice.tag() == (oath::Tag::Challenge as u8).try_into().unwrap());
         let challenge = slice.as_bytes();
         // assert_eq!(challenge.len(), 8);
 
-        let slice: TaggedSlice = decoder.decode().unwrap();
+        let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap());
         let response = slice.as_bytes();
         // assert_eq!(response.len(), 20);
@@ -111,11 +112,11 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Validate<'l> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
-        let slice: TaggedSlice = decoder.decode().unwrap();
+        let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap());
         let response = slice.as_bytes();
 
-        let slice: TaggedSlice = decoder.decode().unwrap();
+        let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(slice.tag() == (oath::Tag::Challenge as u8).try_into().unwrap());
         let challenge = slice.as_bytes();
 
@@ -135,13 +136,13 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for VerifyCode<'l> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
-        let first: TaggedSlice = decoder.decode().unwrap();
+        let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(first.tag() == (oath::Tag::Name as u8).try_into().unwrap());
         let label = first.as_bytes();
 
-        let slice: TaggedSlice = decoder.decode().unwrap();
+        let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap());
-        let response = u32::from_be_bytes(slice.as_bytes().try_into().map_err(|_| Status::ConditionsOfUseNotSatisfied )?);
+        let response = u32::from_be_bytes(slice.as_bytes().try_into().map_err(|_| FAILED_PARSING_ERROR )?);
 
         Ok(VerifyCode { label, response })
     }
@@ -159,11 +160,11 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Calculate<'l> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
-        let first: TaggedSlice = decoder.decode().unwrap();
+        let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(first.tag() == (oath::Tag::Name as u8).try_into().unwrap());
         let label = first.as_bytes();
 
-        let second: TaggedSlice = decoder.decode().unwrap();
+        let second: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(second.tag() == (oath::Tag::Challenge as u8).try_into().unwrap());
         let challenge = second.as_bytes();
 
@@ -182,7 +183,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for CalculateAll<'l> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
-        let first: TaggedSlice = decoder.decode().unwrap();
+        let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(first.tag() == (oath::Tag::Challenge as u8).try_into().unwrap());
         let challenge = first.as_bytes();
 
@@ -211,7 +212,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Delete<'l> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
 
-        let first: TaggedSlice = decoder.decode().unwrap();
+        let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         assert!(first.tag() == (oath::Tag::Name as u8).try_into().unwrap());
         let label = first.as_bytes();
 
@@ -303,12 +304,13 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Register<'l> {
         let mut decoder = flexiber::Decoder::new(data);
 
         // first comes the label of the credential, with Tag::Name
-        let first: TaggedSlice = decoder.decode().unwrap();
+        let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
+        // TODO make asserts recoverable errors
         assert!(first.tag() == (oath::Tag::Name as u8).try_into().unwrap());
         let label = first.as_bytes();
 
         // then come (kind,algorithm,digits) and the actual secret (somewhat massaged)
-        let second: TaggedSlice = decoder.decode().unwrap();
+        let second: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         second.tag().assert_eq((oath::Tag::Key as u8).try_into().unwrap()).unwrap();
         let (secret_header, secret) = second.as_bytes().split_at(2);
 
@@ -316,7 +318,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Register<'l> {
         let algorithm: oath::Algorithm = secret_header[0].try_into()?;
         let digits = secret_header[1];
 
-        let maybe_properties: Option<Properties> = decoder.decode().unwrap();
+        let maybe_properties: Option<Properties> = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
         // info_now!("maybe_properties: {:?}", &maybe_properties);
 
         let touch_required = maybe_properties
