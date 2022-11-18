@@ -51,6 +51,7 @@ impl TryFrom<u8> for Algorithm {
 pub enum Kind {
     Hotp = 0x10,
     Totp = 0x20,
+    HotpReverse = 0x30,
 }
 
 impl TryFrom<u8> for Kind {
@@ -59,6 +60,7 @@ impl TryFrom<u8> for Kind {
         Ok(match byte & 0xf0 {
             0x10 => Kind::Hotp,
             0x20 => Kind::Totp,
+            0x30 => Kind::HotpReverse,
             _ => return Err(Self::Error::IncorrectDataParameter),
         })
     }
@@ -86,6 +88,8 @@ pub enum Instruction {
     Validate = 0xa3,
     CalculateAll = 0xa4,
     SendRemaining = 0xa5,
+    // Place extending commands in 0xBx space
+    VerifyCode = 0xb1
 }
 
 impl TryFrom<u8> for Instruction {
@@ -102,6 +106,7 @@ impl TryFrom<u8> for Instruction {
             0xa3 => Validate,
             0xa4 => CalculateAll,
             0xa5 => SendRemaining,
+            0xb1 => VerifyCode,
             _ => return Err(Self::Error::InstructionNotSupportedOrInvalid),
         })
     }

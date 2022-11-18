@@ -21,6 +21,9 @@ pub const YUBICO_RID: [u8; 5] = hex!("A000000 527");
 // pub const YUBICO_OTP_AID: &[u8] = &hex!("A000000527 2001 01");
 pub const YUBICO_OATH_AID: &[u8] = &hex!("A000000527 2101");// 01");
 
+/// This constant defines timeout for the regular UP confirmation
+pub const UP_TIMEOUT_MILLISECONDS: u32 = 15 * 1000;
+
 // class AID(bytes, Enum):
 //     OTP = b'\xa0\x00\x00\x05\x27 \x20\x01'
 //     MGR = b'\xa0\x00\x00\x05\x27\x47\x11\x17'

@@ -1,14 +1,23 @@
 use core::convert::TryInto;
+use core::time::Duration;
+
+#[cfg(feature = "ctaphid")]
+use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
+#[cfg(feature = "ctaphid")]
+use ctaphid_dispatch::command::VendorCommand;
 
 use flexiber::{Encodable, EncodableHeapless};
 use iso7816::{Data, Status};
 use serde::{Deserialize, Serialize};
 use trussed::{
-    client, syscall, try_syscall,
-    postcard_deserialize, postcard_serialize, postcard_serialize_bytes,
+    client, postcard_deserialize, postcard_serialize,
+    postcard_serialize_bytes, syscall, try_syscall,
     types::{KeyId, Location, PathBuf},
 };
+
 use crate::{command, Command, oath, state::{CommandState, State}};
+use crate::command::VerifyCode;
+use crate::oath::Kind;
 
 /// The TOTP authenticator Trussed® app.
 pub struct Authenticator<T> {
@@ -179,6 +188,7 @@ where
                 Command::Select(_) => {}
                 Command::Validate(_) => {}
                 Command::Reset => {}
+                Command::VerifyCode(_) => {}
                 _ => return Err(Status::ConditionsOfUseNotSatisfied),
             }
         }
@@ -193,6 +203,7 @@ where
             Command::Validate(validate) => self.validate(validate, reply),
             Command::SetPassword(set_password) => self.set_password(set_password),
             Command::ClearPassword => self.clear_password(),
+            Command::VerifyCode(verify_code) => self.verify_code(verify_code, reply),
         }
     }
 
@@ -479,7 +490,11 @@ where
         }
         // info_now!("recv {:?}", &calculate);
 
-        let mut credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
+        let credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
+
+        if credential.touch_required {
+            self.user_present()?;
+        }
 
         let truncated_digest = match credential.kind {
             oath::Kind::Totp => crate::calculate::calculate(
@@ -489,29 +504,15 @@ where
                     credential.secret,
                 ),
             oath::Kind::Hotp => {
-                // load-bump counter
                 if let Some(counter) = credential.counter {
-
-                    credential.counter = Some(counter + 1);
-
-                    let filename = self.filename_for_label(credential.label);
-                    syscall!(self.trussed.write_file(
-                        Location::Internal,
-                        filename,
-                        postcard_serialize_bytes(&credential).unwrap(),
-                        None
-                    ));
-                    let counter_long: u64 = counter.into();
-                    crate::calculate::calculate(
-                        &mut self.trussed,
-                        credential.algorithm,
-                        &counter_long.to_be_bytes(),
-                        credential.secret,
-                    )
+                    self.calculate_hotp_digest_and_bump_counter(credential, counter)?
                 } else {
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
                 }
+            },
+            Kind::HotpReverse => {
+                return Err(Status::SecurityStatusNotSatisfied);
             }
         };
 
@@ -698,6 +699,133 @@ where
         Ok(())
     }
 
+    /// Verify the HOTP code coming from a PC host, and show visually to user,
+    /// that the code is correct or not, with a green or red LED respectively.
+    /// Does not need authorization by design.
+    ///
+    /// https://github.com/Nitrokey/nitrokey-hotp-verification#verifying-hotp-code
+    /// Solution contains a mean to avoid desynchronization between the host's and device's counters. Device calculates up to 9 values ahead of its current counter to find the matching code (in total it calculates HOTP code for 10 subsequent counter positions). In case:
+    ///
+    /// - no code would match - the on-device counter will not be changed;
+    /// - incoming code parsing would fail - the on-device counter will not be changed;
+    /// - code would match, but with some counter's offset (up to 9) - the on-device counter will be set to matched code-generated HOTP counter and incremented by 1;
+    /// - code would match, and the code matches counter without offset - the counter will be incremented by 1.
+    ///
+    /// Device will stop verifying the HOTP codes in case, when the difference between the host and on-device counters will be greater or equal to 10.
+    fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
+        const COUNTER_WINDOW_SIZE: u32 = 9;
+        let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
+
+        if credential.touch_required {
+            self.user_present()?;
+        }
+
+        let code_in = args.response;
+
+        let current_counter = match credential.kind {
+            oath::Kind::HotpReverse => {
+                if let Some(counter) = credential.counter {
+                    counter
+                } else {
+                    debug_now!("HOTP missing its counter");
+                    return Err(Status::UnspecifiedPersistentExecutionError);
+                }
+            },
+            _ => return Err(Status::ConditionsOfUseNotSatisfied),
+        };
+        let mut found = None;
+        for offset in 0..=COUNTER_WINDOW_SIZE {
+            // Do abort with error on the max value, so these could not be pregenerated,
+            // and returned to user after overflow, or the same code used each time
+            let counter = current_counter.checked_add(offset).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?;
+            let code = self.calculate_hotp_code_for_counter(credential, counter).map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+            if code == code_in {
+                found = Some(counter);
+                break;
+            }
+        }
+
+        if found.is_none() {
+            // Failed verification
+            self.wink_bad();
+            return Err(Status::VerificationFailed);
+        }
+
+        self.bump_counter_for_cred(credential, found.unwrap())?;
+        self.wink_good();
+
+        // Verification passed
+        // Return "No response". Communicate only through error codes.
+        reply.push(0x77).unwrap();
+        reply.push(0).unwrap();
+        Ok(())
+    }
+
+    fn calculate_hotp_code_for_counter(&mut self, credential: Credential, counter: u32) -> iso7816::Result<u32> {
+        let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter);
+        let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
+        let code = (truncated_code & 0x7FFFFFFF) % 10u32.pow(credential.digits as _);
+        debug_now!("Code for ({:?},{}): {}", credential.label, counter, code);
+        Ok(code)
+    }
+
+    fn calculate_hotp_digest_and_bump_counter(&mut self, mut credential: Credential, counter: u32) -> iso7816::Result<[u8; 4]> {
+        self.bump_counter_for_cred(credential, counter)?;
+        credential.counter = Some(
+            counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
+        );
+        let res = self.calculate_hotp_digest_for_counter(credential, counter);
+        Ok(res)
+    }
+
+    fn bump_counter_for_cred(&mut self, mut credential: Credential, counter: u32) -> Result {
+        // Do abort with error on the max value, so these could not be pregenerated,
+        // and returned to user after overflow, or the same code used each time
+        credential.counter = Some(
+            counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
+        );
+        // load-bump counter
+        let filename = self.filename_for_label(credential.label);
+        // TODO: use try_syscall
+        syscall!(self.trussed.write_file(
+                        Location::Internal,
+                        filename,
+                        postcard_serialize_bytes(&credential).unwrap(),
+                        None
+                    ));
+        Ok(())
+    }
+
+    fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> [u8; 4] {
+        let counter_long: u64 = counter.into();
+        crate::calculate::calculate(
+            &mut self.trussed,
+            credential.algorithm,
+            &counter_long.to_be_bytes(),
+            credential.secret,
+        )
+    }
+
+    fn user_present(
+        &mut self,
+    ) -> Result {
+        use crate::UP_TIMEOUT_MILLISECONDS;
+        let result = syscall!(self.trussed.confirm_user_present(UP_TIMEOUT_MILLISECONDS)).result;
+        result.map_err(|err| match err {
+            trussed::types::consent::Error::TimedOut => Status::SecurityStatusNotSatisfied,
+            _ => Status::UnspecifiedPersistentExecutionError,
+        })
+    }
+
+    fn wink_bad(&mut self) {
+        // TODO blink red LED infinite times, highest priority
+        syscall!(self.trussed.wink(Duration::from_secs(1000)));
+    }
+
+    fn wink_good(&mut self) {
+        // TODO blink green LED for 10 seconds, highest priority
+        syscall!(self.trussed.wink(Duration::from_secs(10)));
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -775,11 +903,10 @@ where
     }
 }
 
-use ctaphid_dispatch::app::{self as hid, Command as HidCommand, Message};
-use ctaphid_dispatch::command::VendorCommand;
-
+#[cfg(feature = "ctaphid")]
 const OTP_CCID: VendorCommand = VendorCommand::H70;
 
+#[cfg(feature = "ctaphid")]
 impl<T> hid::App for Authenticator<T>
     where T: client::Client
     + client::HmacSha1
@@ -797,13 +924,13 @@ impl<T> hid::App for Authenticator<T>
         match command {
             HidCommand::Vendor(OTP_CCID) => {
                 let ctap_to_iso7816_command = iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data)
-                    .map_err(|e| {
-                        debug_now!("ISO conversion error: {:?}", e);
-                        hid::Error::InvalidCommand
+                    .map_err(|_e| {
+                        debug_now!("ISO conversion error: {:?}", _e);
+                        hid::Error::InvalidLength
                     })?;
                 self.respond(&ctap_to_iso7816_command, response)
-                    .map_err(|e| {
-                        debug_now!("OTP command execution error: {:?}", e);
+                    .map_err(|_e| {
+                        debug_now!("OTP command execution error: {:?}", _e);
                         hid::Error::InvalidCommand
                     })?;
             }
@@ -814,3 +941,4 @@ impl<T> hid::App for Authenticator<T>
         Ok(())
     }
 }
+
