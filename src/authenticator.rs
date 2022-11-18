@@ -375,9 +375,10 @@ where
 
         // 1. Store secret in Trussed
         let raw_key = register.credential.secret;
-        let key_handle = syscall!(
+        let key_handle = try_syscall!(
             self.trussed.unsafe_inject_shared_key(raw_key, Location::Internal)
-        ).key;
+        ).map_err(|_| Status::NotEnoughMemory)?
+        .key;
         // info!("new key handle: {:?}", key_handle);
 
         // 2. Replace secret in credential with handle
@@ -392,12 +393,12 @@ where
         // info_now!("storing serialized credential: {}", hex_str!(&serialized));
 
         // 5. Store it
-        syscall!(self.trussed.write_file(
+        try_syscall!(self.trussed.write_file(
             Location::Internal,
             filename,
             heapless_bytes::Bytes::from_slice(serialized).unwrap(),
             None
-        ));
+        )).map_err(|_| Status::NotEnoughMemory)?;
 
         Ok(())
     }
