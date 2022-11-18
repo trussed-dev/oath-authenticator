@@ -7,8 +7,6 @@ edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "OATH authenticator Trussed app"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 apdu-dispatch = { version = "0.1",  optional = true }
 delog = "0.1.2"
@@ -27,8 +25,6 @@ usbd-ctaphid = { git = "https://github.com/Nitrokey/nitrokey-3-firmware", option
 
 [dev-dependencies]
 log = { version = "0.4.14", default-features = false }
-clap = { version = "3.0.0", features = ["derive"] }
-clap-num = "1.0.0"
 pretty_env_logger = "0.4.0"
 
 
@@ -43,10 +39,3 @@ log-debug = []
 log-warn = []
 log-error = []
 
-[[example]]
-name = "usbip_simulation"
-required-features = ["ctaphid"]
-
-
-[patch.crates-io]
-#trussed = { git = "https://github.com/trussed-dev/trussed" }
