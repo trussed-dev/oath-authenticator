@@ -285,7 +285,7 @@ impl<'a> flexiber::Decodable<'a> for Properties {
         let two_bytes: [u8; 2] = decoder.decode()?;
         let [tag, properties] = two_bytes;
         use flexiber::Tagged;
-        assert_eq!(flexiber::Tag::try_from(tag).unwrap(), Self::tag());
+        assertfn(flexiber::Tag::try_from(tag).unwrap() == Self::tag(), flexiber::ErrorKind::Failed)?;
         Ok(Properties(properties))
     }
 }

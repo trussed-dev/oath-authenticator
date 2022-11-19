@@ -326,7 +326,8 @@ where
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
 
             // deserialize
-            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
+            let credential: Credential = postcard_deserialize(&serialized_credential)
+                .map_err(|_| Status::IncorrectDataParameter)?;
 
             // append data in form:
             // 72
@@ -452,7 +453,8 @@ where
             // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // deserialize
-            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
+            let credential: Credential = postcard_deserialize(&serialized_credential)
+                .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
 
             // add to response
             reply.push(0x71).unwrap();
@@ -746,13 +748,16 @@ where
             }
         }
 
-        if found.is_none() {
-            // Failed verification
-            self.wink_bad();
-            return Err(Status::VerificationFailed);
-        }
+        let found = match found {
+            None => {
+                // Failed verification
+                self.wink_bad();
+                return Err(Status::VerificationFailed);
+            }
+            Some(val) => val
+        };
 
-        self.bump_counter_for_cred(credential, found.unwrap())?;
+        self.bump_counter_for_cred(credential, found)?;
         self.wink_good();
 
         // Verification passed
@@ -788,12 +793,12 @@ where
         // load-bump counter
         let filename = self.filename_for_label(credential.label);
         // TODO: use try_syscall
-        syscall!(self.trussed.write_file(
+        try_syscall!(self.trussed.write_file(
                         Location::Internal,
                         filename,
                         postcard_serialize_bytes(&credential).unwrap(),
                         None
-                    ));
+                    )).map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
         Ok(())
     }
 

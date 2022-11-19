@@ -34,9 +34,7 @@ pub const UP_TIMEOUT_MILLISECONDS: u32 = 15 * 1000;
 //     U2F_YUBICO = b'\xa0\x00\x00\x05\x27\x10\x02'  # Yubico - No longer used
 
 
-type Result = iso7816::Result<()>;
-
-fn assertfn(cond: bool, err: iso7816::Status) -> Result{
+fn assertfn<T>(cond: bool, err: T) ->  core::result::Result<(), T> {
     match cond {
         true => Ok(()),
         false => Err(err)
