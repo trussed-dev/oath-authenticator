@@ -11,7 +11,7 @@ check:
 
 .PHONY: fuzz
 fuzz:
-	cargo +nightly fuzz run --jobs ${FUZZ_JOBS} fuzz_target_1 corpus -- -max_total_time=${FUZZ_DURATION}
+	nice cargo +nightly fuzz run --jobs ${FUZZ_JOBS} fuzz_target_1 corpus -- -max_total_time=${FUZZ_DURATION}
 
 .PHONY: fuzz-cov
 fuzz-cov:
