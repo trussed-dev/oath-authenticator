@@ -39,3 +39,6 @@ log-debug = []
 log-warn = []
 log-error = []
 
+
+[patch.crates-io]
+flexiber = { git = "https://github.com/Nitrokey/flexiber", branch = "oath-authenticator" }
