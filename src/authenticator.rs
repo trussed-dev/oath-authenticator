@@ -15,7 +15,7 @@ use trussed::{
     types::{KeyId, Location, PathBuf},
 };
 
-use crate::{command, Command, oath, state::{CommandState, State}};
+use crate::{assertfn, command, Command, oath, state::{CommandState, State}};
 use crate::command::VerifyCode;
 use crate::oath::Kind;
 
@@ -174,9 +174,9 @@ where
     fn inner_respond<const C: usize, const R: usize>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
     {
         let class = command.class();
-        assert!(class.chain().last_or_only());
-        assert!(class.secure_messaging().none());
-        assert!(class.channel() == Some(0));
+        assertfn(class.chain().last_or_only(), Status::CommandChainingNotSupported)?;
+        assertfn(class.secure_messaging().none(), Status::SecureMessagingNotSupported)?;
+        assertfn(class.channel() == Some(0), Status::ClassNotSupported)?;
 
         // parse Iso7816Command as PivCommand
         let command: Command = command.try_into()?;
