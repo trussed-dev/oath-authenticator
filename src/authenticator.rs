@@ -15,7 +15,7 @@ use trussed::{
     types::{KeyId, Location, PathBuf},
 };
 
-use crate::{assertfn, command, Command, oath, state::{CommandState, State}};
+use crate::{ensure, command, Command, oath, state::{CommandState, State}};
 use crate::command::VerifyCode;
 use crate::oath::Kind;
 
@@ -174,9 +174,9 @@ where
     fn inner_respond<const C: usize, const R: usize>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
     {
         let class = command.class();
-        assertfn(class.chain().last_or_only(), Status::CommandChainingNotSupported)?;
-        assertfn(class.secure_messaging().none(), Status::SecureMessagingNotSupported)?;
-        assertfn(class.channel() == Some(0), Status::ClassNotSupported)?;
+        ensure(class.chain().last_or_only(), Status::CommandChainingNotSupported)?;
+        ensure(class.secure_messaging().none(), Status::SecureMessagingNotSupported)?;
+        ensure(class.channel() == Some(0), Status::ClassNotSupported)?;
 
         // parse Iso7816Command as PivCommand
         let command: Command = command.try_into()?;
@@ -792,7 +792,6 @@ where
         );
         // load-bump counter
         let filename = self.filename_for_label(credential.label);
-        // TODO: use try_syscall
         try_syscall!(self.trussed.write_file(
                         Location::Internal,
                         filename,

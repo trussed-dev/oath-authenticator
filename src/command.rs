@@ -2,7 +2,7 @@ use core::convert::{TryFrom, TryInto};
 
 use iso7816::{Data, Status};
 
-use crate::{assertfn, oath};
+use crate::{ensure, oath};
 
 const FAILED_PARSING_ERROR: Status = iso7816::Status::IncorrectDataParameter;
 
@@ -72,7 +72,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for SetPassword<'l> {
         use flexiber::TaggedSlice;
         let mut decoder = flexiber::Decoder::new(data);
         let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(slice.tag() == (oath::Tag::Key as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(slice.tag() == (oath::Tag::Key as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         if slice.as_bytes().len() < 2 { return Err(FAILED_PARSING_ERROR) };
         let (key_header, key) = slice.as_bytes().split_at(1);
 
@@ -82,12 +82,12 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for SetPassword<'l> {
         // assert!(algorithm == oath::Algorithm::Sha1);
 
         let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(slice.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(slice.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let challenge = slice.as_bytes();
         // assert_eq!(challenge.len(), 8);
 
         let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let response = slice.as_bytes();
         // assert_eq!(response.len(), 20);
 
@@ -114,11 +114,11 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Validate<'l> {
         let mut decoder = flexiber::Decoder::new(data);
 
         let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let response = slice.as_bytes();
 
         let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(slice.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(slice.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let challenge = slice.as_bytes();
 
         Ok(Validate { challenge, response })
@@ -138,11 +138,11 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for VerifyCode<'l> {
         let mut decoder = flexiber::Decoder::new(data);
 
         let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let label = first.as_bytes();
 
         let slice: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(slice.tag() == (oath::Tag::Response as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let response = u32::from_be_bytes(slice.as_bytes().try_into().map_err(|_| FAILED_PARSING_ERROR )?);
 
         Ok(VerifyCode { label, response })
@@ -162,11 +162,11 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Calculate<'l> {
         let mut decoder = flexiber::Decoder::new(data);
 
         let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let label = first.as_bytes();
 
         let second: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(second.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(second.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let challenge = second.as_bytes();
 
         Ok(Calculate { label, challenge })
@@ -185,7 +185,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for CalculateAll<'l> {
         let mut decoder = flexiber::Decoder::new(data);
 
         let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(first.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(first.tag() == (oath::Tag::Challenge as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let challenge = first.as_bytes();
 
         Ok(CalculateAll { challenge })
@@ -214,7 +214,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Delete<'l> {
         let mut decoder = flexiber::Decoder::new(data);
 
         let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        assertfn(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let label = first.as_bytes();
 
         Ok(Delete { label })
@@ -285,7 +285,7 @@ impl<'a> flexiber::Decodable<'a> for Properties {
         let two_bytes: [u8; 2] = decoder.decode()?;
         let [tag, properties] = two_bytes;
         use flexiber::Tagged;
-        assertfn(flexiber::Tag::try_from(tag).unwrap() == Self::tag(), flexiber::ErrorKind::Failed)?;
+        ensure(flexiber::Tag::try_from(tag).unwrap() == Self::tag(), flexiber::ErrorKind::Failed)?;
         Ok(Properties(properties))
     }
 }
@@ -306,8 +306,7 @@ impl<'l, const C: usize> TryFrom<&'l Data<C>> for Register<'l> {
 
         // first comes the label of the credential, with Tag::Name
         let first: TaggedSlice = decoder.decode().map_err(|_| FAILED_PARSING_ERROR)?;
-        // TODO make asserts recoverable errors
-        assertfn(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
+        ensure(first.tag() == (oath::Tag::Name as u8).try_into().unwrap(), FAILED_PARSING_ERROR)?;
         let label = first.as_bytes();
 
         // then come (kind,algorithm,digits) and the actual secret (somewhat massaged)
