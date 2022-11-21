@@ -93,6 +93,10 @@ pub struct ChallengingAnswerToSelect {
     // instead of '74 00', as with the tagged/Option derivation.
     #[tlv(simple = "0x74")] // Tag::Challenge
     challenge: [u8; 8],
+
+    #[tlv(simple = "0x7b")] // Tag::Algorithm
+    // algorithm: oath::Algorithm,
+    algorithm: [u8; 1],
 }
 
 impl AnswerToSelect {
@@ -114,6 +118,8 @@ impl AnswerToSelect {
             version: self.version,
             salt: self.salt,
             challenge: challenge,
+            // algorithm: oath::Algorithm::Sha1  // TODO set proper algo
+            algorithm: [0x01]  // TODO set proper algo
         }
     }
 }
