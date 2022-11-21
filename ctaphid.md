@@ -84,10 +84,11 @@ Fields marked with `*` are concatenated with the `Key` field.
 | Challenge      | 0x74  | The challenge value for the TOTP calculations. 64-bit unsigned integer, big endian encoded. |
 | InitialCounter | 0x7A  | Initial value for the HOTP counter. 32-bit unsigned integer, big endian encoded.            |
 
-| Kind | Value | Description                                           |
-|------|-------|-------------------------------------------------------|
-| HOTP | 0x10  | Calculate OTP as HOTP, against the internal counter   |
-| TOTP | 0x20  | Calculate OTP as TOTP, against the provided challenge |
+| Kind         | Value | Description                                               |
+|--------------|-------|-----------------------------------------------------------|
+| HOTP         | 0x10  | Calculate OTP as HOTP, against the internal counter       |
+| TOTP         | 0x20  | Calculate OTP as TOTP, against the provided challenge     |
+| REVERSE_HOTP | 0x30  | Calculate HOTP code, and compare against the provided one |
 
 | Algorithm | Value | Description               |
 |-----------|-------|---------------------------|
@@ -223,7 +224,7 @@ Options:
 
 Current solution does have a couple of limitations, which could be corrected in the further development:
 
-- HOTP counter value can't be bigger than 2^32;
+- initial HOTP counter value can't be bigger than 2^32;
 - SHA512 algorithm is not supported at the moment.
 
 Both limitations are not affecting the daily usage.
