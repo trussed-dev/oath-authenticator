@@ -16,7 +16,12 @@ fuzz:
 .PHONY: fuzz-cov
 fuzz-cov:
 	cargo +nightly fuzz coverage fuzz_target_1 corpus
-	llvm-cov show --format=html \
+	$(MAKE) fuzz-cov-show
+
+LLVMCOV=~/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/llvm-cov
+.PHONY: fuzz-cov-show
+fuzz-cov-show:
+	$(LLVMCOV) show --format=html \
 		--instr-profile=coverage/fuzz_target_1/coverage.profdata \
 		 ${CARGO_TARGET_DIR}/x86_64-unknown-linux-gnu/release/fuzz_target_1 \
 		> fuzz_coverage.html
