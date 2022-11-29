@@ -23,6 +23,7 @@ pub const YUBICO_OATH_AID: &[u8] = &hex!("A000000527 2101");// 01");
 
 /// This constant defines timeout for the regular UP confirmation
 pub const UP_TIMEOUT_MILLISECONDS: u32 = 15 * 1000;
+pub const FAILURE_FORCED_DELAY_MILLISECONDS: u32 = 1 * 1000;
 
 // class AID(bytes, Enum):
 //     OTP = b'\xa0\x00\x00\x05\x27 \x20\x01'

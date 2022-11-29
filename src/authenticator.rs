@@ -758,6 +758,7 @@ where
             None => {
                 // Failed verification
                 self.wink_bad();
+                self.delay_on_failure();
                 return Err(Status::VerificationFailed);
             }
             Some(val) => val
@@ -836,6 +837,12 @@ where
     fn wink_good(&mut self) {
         // TODO blink green LED for 10 seconds, highest priority
         syscall!(self.trussed.wink(Duration::from_secs(10)));
+    }
+
+    fn delay_on_failure(&mut self){
+        use crate::FAILURE_FORCED_DELAY_MILLISECONDS;
+        // TODO block for the time defined in the constant
+        // DESIGN allow only a couple of failures per power cycle? Similarly to the FIDO2 PIN
     }
 }
 
