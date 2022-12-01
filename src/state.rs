@@ -94,12 +94,12 @@ impl State {
         let result = f(trussed, &mut state);
 
         // 3. Always write it back
-        syscall!(trussed.write_file(
+        try_syscall!(trussed.write_file(
             Location::Internal,
             PathBuf::from(Self::FILENAME),
             postcard_serialize_bytes(&state).unwrap(),
             None,
-        ));
+        )).map_err(|_| Status::NotEnoughMemory)?;
 
         // 4. Return whatever
         result

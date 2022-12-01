@@ -15,7 +15,7 @@ use trussed::{
     types::{KeyId, Location, PathBuf},
 };
 
-use crate::{command, Command, oath, state::{CommandState, State}};
+use crate::{ensure, command, Command, oath, state::{CommandState, State}};
 use crate::command::VerifyCode;
 use crate::oath::Kind;
 
@@ -93,6 +93,10 @@ pub struct ChallengingAnswerToSelect {
     // instead of '74 00', as with the tagged/Option derivation.
     #[tlv(simple = "0x74")] // Tag::Challenge
     challenge: [u8; 8],
+
+    #[tlv(simple = "0x7b")] // Tag::Algorithm
+    // algorithm: oath::Algorithm,
+    algorithm: [u8; 1],
 }
 
 impl AnswerToSelect {
@@ -114,6 +118,8 @@ impl AnswerToSelect {
             version: self.version,
             salt: self.salt,
             challenge: challenge,
+            // algorithm: oath::Algorithm::Sha1  // TODO set proper algo
+            algorithm: [0x01]  // TODO set proper algo
         }
     }
 }
@@ -174,9 +180,9 @@ where
     fn inner_respond<const C: usize, const R: usize>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
     {
         let class = command.class();
-        assert!(class.chain().last_or_only());
-        assert!(class.secure_messaging().none());
-        assert!(class.channel() == Some(0));
+        ensure(class.chain().last_or_only(), Status::CommandChainingNotSupported)?;
+        ensure(class.secure_messaging().none(), Status::SecureMessagingNotSupported)?;
+        ensure(class.channel() == Some(0), Status::ClassNotSupported)?;
 
         // parse Iso7816Command as PivCommand
         let command: Command = command.try_into()?;
@@ -326,7 +332,8 @@ where
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
 
             // deserialize
-            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
+            let credential: Credential = postcard_deserialize(&serialized_credential)
+                .map_err(|_| Status::IncorrectDataParameter)?;
 
             // append data in form:
             // 72
@@ -452,7 +459,8 @@ where
             // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // deserialize
-            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
+            let credential: Credential = postcard_deserialize(&serialized_credential)
+                .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
 
             // add to response
             reply.push(0x71).unwrap();
@@ -746,13 +754,17 @@ where
             }
         }
 
-        if found.is_none() {
-            // Failed verification
-            self.wink_bad();
-            return Err(Status::VerificationFailed);
-        }
+        let found = match found {
+            None => {
+                // Failed verification
+                self.wink_bad();
+                self.delay_on_failure();
+                return Err(Status::VerificationFailed);
+            }
+            Some(val) => val
+        };
 
-        self.bump_counter_for_cred(credential, found.unwrap())?;
+        self.bump_counter_for_cred(credential, found)?;
         self.wink_good();
 
         // Verification passed
@@ -787,13 +799,12 @@ where
         );
         // load-bump counter
         let filename = self.filename_for_label(credential.label);
-        // TODO: use try_syscall
-        syscall!(self.trussed.write_file(
+        try_syscall!(self.trussed.write_file(
                         Location::Internal,
                         filename,
                         postcard_serialize_bytes(&credential).unwrap(),
                         None
-                    ));
+                    )).map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
         Ok(())
     }
 
@@ -826,6 +837,12 @@ where
     fn wink_good(&mut self) {
         // TODO blink green LED for 10 seconds, highest priority
         syscall!(self.trussed.wink(Duration::from_secs(10)));
+    }
+
+    fn delay_on_failure(&mut self){
+        use crate::FAILURE_FORCED_DELAY_MILLISECONDS;
+        // TODO block for the time defined in the constant
+        // DESIGN allow only a couple of failures per power cycle? Similarly to the FIDO2 PIN
     }
 }
 
