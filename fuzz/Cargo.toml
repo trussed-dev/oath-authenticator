@@ -44,4 +44,4 @@ doc = false
 
 [patch.crates-io]
 trussed = { git = "https://github.com/trussed-dev/trussed", branch = "main" }
-flexiber = { git = "https://github.com/Nitrokey/flexiber", branch = "oath-authenticator" }
+flexiber = { git = "https://github.com/Nitrokey/flexiber", rev = "0.1.1.nitrokey" }
