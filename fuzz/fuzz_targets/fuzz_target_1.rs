@@ -6,6 +6,7 @@ use libfuzzer_sys::fuzz_target;
 fn parse(data: &[u8]) -> Vec<Vec<u8>> {
     let mut res = Vec::new();
     if data.len() < 2 || data.len() > 1024*1024 {
+        // Too big or too small data found at this point. Skip it.
         return vec![];
     }
 
@@ -15,6 +16,7 @@ fn parse(data: &[u8]) -> Vec<Vec<u8>> {
         let mut v = Vec::new();
         for _i in 0..size {
             if iter.peek().is_none() {
+                // Unparsable data found at this point, due to modified size field. Skip it.
                 return vec![];
             }
             v.push(*iter.next().unwrap());

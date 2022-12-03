@@ -336,6 +336,7 @@ where
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
 
             // deserialize
+            // TODO problematic when flash memory is full?
             let credential: Credential = postcard_deserialize(&serialized_credential)
                 .map_err(|_| Status::IncorrectDataParameter)?;
 
@@ -525,6 +526,7 @@ where
                 }
             },
             Kind::HotpReverse => {
+                // This credential kind should never be access through calculate()
                 return Err(Status::SecurityStatusNotSatisfied);
             }
         };
