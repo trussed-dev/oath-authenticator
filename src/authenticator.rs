@@ -15,7 +15,7 @@ use trussed::{
     types::{KeyId, Location, PathBuf},
 };
 
-use crate::{ensure, command, Command, oath, state::{CommandState, State}};
+use crate::{ensure, command, Command, oath, state::{CommandState, State}, ResultT};
 use crate::command::VerifyCode;
 use crate::oath::Kind;
 
@@ -25,7 +25,7 @@ pub struct Authenticator<T> {
     trussed: T,
 }
 
-type Result = iso7816::Result<()>;
+use crate::Result;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct OathVersion {
@@ -257,11 +257,15 @@ where
         // }
 
         debug_now!(":: reset - delete all keys");
-        syscall!(self.trussed.delete_all(Location::Internal));
+        try_syscall!(self.trussed.delete_all(Location::Internal))
+            .map_err(|_| Status::NotEnoughMemory)?;
+
 
         debug_now!(":: reset - delete all files");
         // NB: This deletes state.bin too, so it removes a possibly set password.
-        syscall!(self.trussed.remove_dir_all(Location::Internal, PathBuf::new()));
+        try_syscall!(self.trussed.remove_dir_all(Location::Internal, PathBuf::new()))
+            .map_err(|_| Status::NotEnoughMemory)?;
+
 
         self.state.runtime.reset();
 
@@ -474,7 +478,7 @@ where
                     credential.algorithm,
                     calculate_all.challenge,
                     credential.secret,
-                );
+                )?;
                 reply.push(0x76).unwrap();
                 reply.push(5).unwrap();
                 reply.push(credential.digits).unwrap();
@@ -511,7 +515,7 @@ where
                     credential.algorithm,
                     calculate.challenge,
                     credential.secret,
-                ),
+                )?,
             oath::Kind::Hotp => {
                 if let Some(counter) = credential.counter {
                     self.calculate_hotp_digest_and_bump_counter(credential, counter)?
@@ -687,10 +691,11 @@ where
         }
 
         // all-right, we have a new password to set
-        let key = syscall!(self.trussed.unsafe_inject_shared_key(
+        let key = try_syscall!(self.trussed.unsafe_inject_shared_key(
             key,
             Location::Internal,
-        )).key;
+        )).map_err(|_| Status::NotEnoughMemory)?
+        .key;
 
         // self.state::persistent(trussed, |trussed, state| {
         //     state.authorization_key = Some(key);
@@ -775,9 +780,9 @@ where
     }
 
     fn calculate_hotp_code_for_counter(&mut self, credential: Credential, counter: u32) -> iso7816::Result<u32> {
-        let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter);
+        let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter)?;
         let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
-        let code = (truncated_code & 0x7FFFFFFF) % 10u32.pow(credential.digits as _);
+        let code = (truncated_code & 0x7FFFFFFF) % 10u32.checked_pow(credential.digits as _).ok_or(Status::UnspecifiedPersistentExecutionError)?;
         debug_now!("Code for ({:?},{}): {}", credential.label, counter, code);
         Ok(code)
     }
@@ -787,7 +792,7 @@ where
         credential.counter = Some(
             counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
         );
-        let res = self.calculate_hotp_digest_for_counter(credential, counter);
+        let res = self.calculate_hotp_digest_for_counter(credential, counter)?;
         Ok(res)
     }
 
@@ -808,7 +813,7 @@ where
         Ok(())
     }
 
-    fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> [u8; 4] {
+    fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> ResultT<[u8; 4]> {
         let counter_long: u64 = counter.into();
         crate::calculate::calculate(
             &mut self.trussed,

@@ -1,6 +1,8 @@
 use core::convert::TryInto;
+use iso7816::Status;
 
-use trussed::{client, syscall, types::KeyId};
+use crate::{ResultT};
+use trussed::{client, try_syscall, types::KeyId};
 use crate::oath;
 
 /// The core calculation
@@ -11,24 +13,29 @@ use crate::oath;
 /// [rfc-4226]: https://tools.ietf.org/html/rfc4226
 /// [rfc-6238]: https://tools.ietf.org/html/rfc6238
 pub fn calculate<T>(trussed: &mut T, algorithm: oath::Algorithm, challenge: &[u8], key: KeyId)
-    -> [u8; 4]
+    -> ResultT<[u8; 4]>
 where
     T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
     use oath::Algorithm::*;
     let truncated = match algorithm {
         Sha1 => {
-            let digest = syscall!(trussed.sign_hmacsha1(key, challenge)).signature;
+            let digest = try_syscall!(trussed.sign_hmacsha1(key, challenge))
+                .map_err(|_| Status::UnspecifiedPersistentExecutionError)?
+                .signature;
             dynamic_truncation(&digest)
         }
         Sha256 => {
-            let digest = syscall!(trussed.sign_hmacsha256(key, challenge)).signature;
+            let digest = try_syscall!(trussed.sign_hmacsha256(key, challenge))
+                .map_err(|_| Status::UnspecifiedPersistentExecutionError)?
+                .signature;
             dynamic_truncation(&digest)
         }
-        Sha512 => unimplemented!(),
+        // Sha512 => unimplemented!(),
+        Sha512 => return Err(Status::FunctionNotSupported),
     };
 
-    truncated.to_be_bytes()
+    Ok(truncated.to_be_bytes())
 }
 
 fn dynamic_truncation(digest: &[u8]) -> u32 {

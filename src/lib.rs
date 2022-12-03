@@ -41,3 +41,5 @@ fn ensure<T>(cond: bool, err: T) ->  core::result::Result<(), T> {
         false => Err(err)
     }
 }
+type Result = iso7816::Result<()>;
+type ResultT<T> = iso7816::Result<T>;
