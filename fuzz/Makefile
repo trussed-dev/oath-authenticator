@@ -9,6 +9,9 @@ FUZZ_JOBS?=$(shell nproc)
 check:
 	reuse lint
 
+corpus: corpus.tar.gz
+	tar xf $<
+
 .PHONY: fuzz
 fuzz:
 	nice cargo +nightly fuzz run --jobs ${FUZZ_JOBS} fuzz_target_1 corpus -- -max_total_time=${FUZZ_DURATION}
