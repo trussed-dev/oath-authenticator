@@ -203,13 +203,14 @@ where
             Command::ListCredentials => self.list_credentials(reply),
             Command::Register(register) => self.register(register),
             Command::Calculate(calculate) => self.calculate(calculate, reply),
-            Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all, reply),
+            // Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all, reply),
             Command::Delete(delete) => self.delete(delete),
             Command::Reset => self.reset(),
             Command::Validate(validate) => self.validate(validate, reply),
             Command::SetPassword(set_password) => self.set_password(set_password),
             Command::ClearPassword => self.clear_password(),
             Command::VerifyCode(verify_code) => self.verify_code(verify_code, reply),
+            _ => return Err(Status::ConditionsOfUseNotSatisfied),
         }
     }
 
