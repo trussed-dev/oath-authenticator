@@ -948,16 +948,22 @@ impl<T> hid::App for Authenticator<T>
         const MAX_COMMAND_LENGTH: usize = 255;
         match command {
             HidCommand::Vendor(OTP_CCID) => {
+                let arr: [u8; 2] = Status::Success.into();
+                response.extend(arr);
                 let ctap_to_iso7816_command = iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data)
                     .map_err(|_e| {
+                        response.clear();
                         debug_now!("ISO conversion error: {:?}", _e);
                         hid::Error::InvalidLength
                     })?;
                 self.respond(&ctap_to_iso7816_command, response)
-                    .map_err(|_e| {
-                        debug_now!("OTP command execution error: {:?}", _e);
+                    .map_err(|e| {
+                        debug_now!("OTP command execution error: {:?}", e);
+                        let arr: [u8; 2] = e.into();
+                        response.clear();
+                        response.extend(arr);
                         hid::Error::InvalidCommand
-                    })?;
+                    }).ok();
             }
             _ => {
                 return Err(hid::Error::InvalidCommand);
