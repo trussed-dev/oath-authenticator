@@ -250,6 +250,8 @@ where
     }
 
     pub fn reset(&mut self) -> Result {
+        self.user_present()?;
+
         // Well. `ykman oath reset` does not check PIN.
         // If you lost your PIN, you wouldn't be able to reset otherwise.
 
@@ -376,6 +378,8 @@ where
     }
 
     pub fn register(&mut self, register: command::Register<'_>) -> Result {
+        self.user_present()?;
+
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -599,6 +603,8 @@ where
     }
 
     pub fn clear_password(&mut self) -> Result {
+        self.user_present()?;
+
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -614,6 +620,8 @@ where
     }
 
     pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
+        self.user_present()?;
+
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
