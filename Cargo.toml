@@ -1,6 +1,6 @@
 [package]
 name = "oath-authenticator"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Nicolas Stalder <n@stalder.io>", "Szczepan Zalega <szczepan@nitrokey.com>"]
 repository = "https://github.com/trussed-dev/oath-authenticator"
 edition = "2021"
