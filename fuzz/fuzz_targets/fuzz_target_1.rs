@@ -1,27 +1,32 @@
 #![no_main]
+// #![feature(iter_advance_by)]
 
 use libfuzzer_sys::fuzz_target;
 
 
-fn parse(data: &[u8]) -> Vec<Vec<u8>> {
+fn parse(data: &[u8]) -> Vec<&[u8]> {
     let mut res = Vec::new();
     if data.len() < 2 || data.len() > 1024*1024 {
         // Too big or too small data found at this point. Skip it.
         return vec![];
     }
 
-    let mut iter = data.into_iter().peekable();
-    while iter.peek().is_some() {
-        let size = *iter.next().unwrap() as usize;
-        let mut v = Vec::new();
-        for _i in 0..size {
-            if iter.peek().is_none() {
-                // Unparsable data found at this point, due to modified size field. Skip it.
-                return vec![];
-            }
-            v.push(*iter.next().unwrap());
+
+    let mut idx = 0;
+    let mut data = data;
+    loop {
+        if idx >= data.len(){
+            break;
         }
+        let size = data[idx] as usize;
+        idx += 1;
+        if idx+size >= data.len(){
+            break;
+        }
+        let (v, rest) = data.split_at(idx+size);
+        data = rest;
         res.push(v);
+        idx += size;
     }
     res
 }
@@ -33,7 +38,7 @@ fuzz_target!(|data: &[u8]| {
 
         let commands = parse(data);
         for data in commands {
-            if let Ok(command) = iso7816::Command::<{ 10 * 255 }>::try_from(data.as_slice()) {
+            if let Ok(command) = iso7816::Command::<{ 10 * 255 }>::try_from(data) {
                 response.clear();
                 oath.respond(&command, &mut response).ok();
             }
