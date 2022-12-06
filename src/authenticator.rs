@@ -15,7 +15,7 @@ use trussed::{
     types::{KeyId, Location, PathBuf},
 };
 
-use crate::{ensure, command, Command, oath, state::{CommandState, State}, ResultT};
+use crate::{ensure, command, Command, oath, state::{CommandState, State}};
 use crate::command::VerifyCode;
 use crate::oath::Kind;
 
@@ -824,7 +824,7 @@ where
         Ok(())
     }
 
-    fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> ResultT<[u8; 4]> {
+    fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> Result<[u8; 4]> {
         let counter_long: u64 = counter.into();
         crate::calculate::calculate(
             &mut self.trussed,

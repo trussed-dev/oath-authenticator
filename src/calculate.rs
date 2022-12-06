@@ -1,7 +1,7 @@
 use core::convert::TryInto;
 use iso7816::Status;
 
-use crate::{ResultT};
+use crate::Result;
 use trussed::{client, try_syscall, types::KeyId};
 use crate::oath;
 
@@ -13,7 +13,7 @@ use crate::oath;
 /// [rfc-4226]: https://tools.ietf.org/html/rfc4226
 /// [rfc-6238]: https://tools.ietf.org/html/rfc6238
 pub fn calculate<T>(trussed: &mut T, algorithm: oath::Algorithm, challenge: &[u8], key: KeyId)
-    -> ResultT<[u8; 4]>
+    -> Result<[u8; 4]>
 where
     T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
