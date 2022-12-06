@@ -9,12 +9,17 @@ FUZZ_JOBS?=$(shell nproc)
 check:
 	reuse lint
 
+corpus: corpus.tar.gz
+	tar xf $<
+
 .PHONY: fuzz
-fuzz:
+fuzz: corpus
 	nice cargo +nightly fuzz run --jobs ${FUZZ_JOBS} fuzz_target_1 corpus -- -max_total_time=${FUZZ_DURATION}
 
 .PHONY: fuzz-cov
 fuzz-cov:
+	mkdir -p /tmp/coverage
+	ln -s /tmp/coverage
 	cargo +nightly fuzz coverage fuzz_target_1 corpus
 	$(MAKE) fuzz-cov-show
 
@@ -35,3 +40,5 @@ setup:
 	rustup component add llvm-tools-preview
 	cargo install cargo-tarpaulin cargo-fuzz --profile release
 	python3 -m pip install reuse
+	# Fedora 37
+	# sudo ln -s libclang.so.15 libclang.so
