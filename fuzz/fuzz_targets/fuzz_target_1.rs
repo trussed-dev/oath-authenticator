@@ -5,28 +5,31 @@ use libfuzzer_sys::fuzz_target;
 
 
 fn parse(data: &[u8]) -> Vec<&[u8]> {
+    // Parse incoming data into slices from format:
+    // Size N (1 bytes)
+    // Value (N bytes)
+
     let mut res = Vec::new();
     if data.len() < 2 || data.len() > 1024*1024 {
         // Too big or too small data found at this point. Skip it.
         return vec![];
     }
 
-
-    let mut idx = 0;
     let mut data = data;
     loop {
-        if idx >= data.len(){
+        if 2 >= data.len() {
             break;
         }
-        let size = data[idx] as usize;
-        idx += 1;
-        if idx+size >= data.len(){
+        let (size, rest) = data.split_at(1);
+        data = rest;
+
+        let size = size[0] as usize;
+        if size >= data.len() {
             break;
         }
-        let (v, rest) = data.split_at(idx+size);
+        let (v, rest) = data.split_at(size);
         data = rest;
         res.push(v);
-        idx += size;
     }
     res
 }

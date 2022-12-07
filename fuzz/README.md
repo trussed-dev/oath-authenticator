@@ -29,6 +29,16 @@ env NK_FUZZ=1 NK_FUZZ_PATH=/tmp/corpus ./venv/bin/pytest pynitrokey/test_otp.py
 With the lines above executed, the resulted corpus is saved to `/tmp/corpus` path. Copy it back to this directory, 
 so it can be used as a starting point for the fuzzing.
 
+Current record format for the corpus data resembles the TLV structure, without the tag encoding - specifically:
+
+| Field | Size   | Description                                                                |
+|-------|--------|:---------------------------------------------------------------------------|
+| Size  | 1 Byte | Size of the Data field                                                     |
+| Data  | Size   | The request to the OTP App, as it would have been sent over CCID transport |
+
+
+One request is one record. There is no records limit - the received corpus is read until the end, and upon parsing error (e.g. size bigger than the remaining data) the data collected until now are returned.
+
 
 ## Setup
 Following call will required components for executing fuzzing process, and interpreting it later with the coverage statistics.
