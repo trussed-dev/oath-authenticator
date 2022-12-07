@@ -563,10 +563,16 @@ where
             debug_now!("key set: {:?}", key);
 
             // 1. verify what the client sent (rotating challenge)
-            let verification = syscall!(self.trussed.sign_hmacsha1(key, &self.state.runtime.challenge)).signature;
+            let verification =
+                try_syscall!(self.trussed.sign_hmacsha1(key, &self.state.runtime.challenge))
+                .map_err(|_| Status::NotEnoughMemory)?
+                .signature;
 
             self.state.runtime.challenge =
-                syscall!(self.trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
+                try_syscall!(self.trussed.random_bytes(8))
+                    .map_err(|_| Status::NotEnoughMemory)?
+                    .bytes.as_ref().try_into()
+                    .map_err(|_| Status::NotEnoughMemory)?;
 
             if verification != response {
                 return Err(Status::IncorrectDataParameter);
@@ -575,7 +581,9 @@ where
             self.state.runtime.client_newly_authorized = true;
 
             // 2. calculate our response to their challenge
-            let response = syscall!(self.trussed.sign_hmacsha1(key, challenge)).signature;
+            let response = try_syscall!(self.trussed.sign_hmacsha1(key, challenge))
+                .map_err(|_| Status::NotEnoughMemory)?
+                .signature;
 
             reply.push(0x75).ok();
             reply.push(20).ok();
