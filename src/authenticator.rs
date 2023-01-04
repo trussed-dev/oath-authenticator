@@ -1,3 +1,4 @@
+use core::borrow::Borrow;
 use core::convert::TryInto;
 use core::time::Duration;
 
@@ -8,15 +9,11 @@ use ctaphid_dispatch::command::VendorCommand;
 
 use flexiber::{Encodable, EncodableHeapless};
 use iso7816::{Data, Status};
-use serde::{Deserialize, Serialize};
-use trussed::{
-    client, postcard_deserialize, postcard_serialize,
-    postcard_serialize_bytes, syscall, try_syscall,
-    types::{KeyId, Location, PathBuf},
-};
+use trussed::{client, syscall, try_syscall, types::{Location, PathBuf}};
 
-use crate::{ensure, command, Command, oath, state::{CommandState, State}};
+use crate::{command, Command, ensure, oath, state::{CommandState, State}};
 use crate::command::VerifyCode;
+use crate::credential::{Credential, CredentialCBOR};
 use crate::oath::Kind;
 
 /// The TOTP authenticator Trussed® app.
@@ -126,7 +123,8 @@ impl AnswerToSelect {
 
 impl<T> Authenticator<T>
 where
-    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
+    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256
+    + client::Chacha8Poly1305,
 {
     // const CREDENTIAL_DIRECTORY: &'static str = "cred";
     fn credential_directory() -> PathBuf {
@@ -235,16 +233,17 @@ where
     fn load_credential<'a>(&mut self, label: &'a [u8]) -> Option<Credential<'a>> {
         let filename = self.filename_for_label(label);
 
-        let serialized_credential = try_syscall!(
-            self.trussed.read_file(Location::Internal, filename)
-        )
-            .ok()?
-            .data;
+        let credential: CredentialCBOR = self.state.try_read_file(&mut self.trussed, filename).ok()?;
 
-        let credential: Credential = postcard_deserialize(serialized_credential.as_ref())
-            .ok()?;
-
-        let credential = Credential { label, ..credential };
+        let credential = Credential {
+            label,
+            kind: credential.cred.kind,
+            algorithm: credential.cred.algorithm,
+            digits: credential.cred.digits,
+            secret: credential.cred.secret,
+            touch_required: credential.cred.touch_required,
+            counter: credential.cred.counter,
+        };
 
         Some(credential)
     }
@@ -265,7 +264,8 @@ where
 
 
         debug_now!(":: reset - delete all files");
-        // NB: This deletes state.bin too, so it removes a possibly set password.
+        // make sure all other files are removed as well
+        // NB: This deletes state.bin too, so it removes a possibly set password and kek key.
         try_syscall!(self.trussed.remove_dir_all(Location::Internal, PathBuf::new()))
             .map_err(|_| Status::NotEnoughMemory)?;
 
@@ -324,14 +324,18 @@ where
         //          79 75 62 69  63 6F
         // 90 00
 
-        let mut maybe_credential = syscall!(self.trussed.read_dir_files_first(
+        let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
             Location::Internal,
             Self::credential_directory(),
             None
         )).data;
+        let mut maybe_credential: Option<CredentialCBOR> = match maybe_credential_enc {
+            None => None,
+            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+        };
 
         let mut file_index = 0;
-        while let Some(serialized_credential) = maybe_credential {
+        while let Some(credential) = maybe_credential {
             // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // keep track, in case we need continuation
@@ -340,8 +344,7 @@ where
 
             // deserialize
             // TODO problematic when flash memory is full?
-            let credential: Credential = postcard_deserialize(&serialized_credential)
-                .map_err(|_| Status::IncorrectDataParameter)?;
+            let credential: Credential = credential.borrow().into();
 
             // append data in form:
             // 72
@@ -354,7 +357,10 @@ where
             reply.extend_from_slice(credential.label).unwrap();
 
             // check if there's more
-            maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
+            maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
+                None => None,
+                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+            };
 
             if file_index % 8 == 0 {
                 // TODO: split response
@@ -405,18 +411,10 @@ where
         let filename = self.filename_for_label(&credential.label);
 
         // 4. Serialize the credential
-        let mut buf = [0u8; 256];
-        let serialized = postcard_serialize(&credential, &mut buf).unwrap();
-        // info_now!("storing serialized credential: {}", hex_str!(&serialized));
+        let credential: CredentialCBOR = credential.into();
 
         // 5. Store it
-        try_syscall!(self.trussed.write_file(
-            Location::Internal,
-            filename,
-            heapless_bytes::Bytes::from_slice(serialized).unwrap(),
-            None
-        )).map_err(|_| Status::NotEnoughMemory)?;
-
+        self.state.try_write_file(&mut self.trussed, filename, &credential)?;
         Ok(())
     }
 
@@ -459,18 +457,22 @@ where
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
-        let mut maybe_credential = syscall!(self.trussed.read_dir_files_first(
+
+        let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
             Location::Internal,
             Self::credential_directory(),
             None
         )).data;
+        let mut maybe_credential: Option<CredentialCBOR> = match maybe_credential_enc {
+            None => None,
+            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+        };
 
-        while let Some(serialized_credential) = maybe_credential {
+        while let Some(credential) = maybe_credential {
             // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // deserialize
-            let credential: Credential = postcard_deserialize(&serialized_credential)
-                .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+            let credential: Credential = credential.borrow().into();
 
             // add to response
             reply.push(0x71).unwrap();
@@ -495,7 +497,11 @@ where
             };
 
             // check if there's more
-            maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
+            maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
+                None => None,
+                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+            };
+
         }
 
         // ran to completion
@@ -818,17 +824,16 @@ where
     fn bump_counter_for_cred(&mut self, mut credential: Credential, counter: u32) -> Result {
         // Do abort with error on the max value, so these could not be pregenerated,
         // and returned to user after overflow, or the same code used each time
+        // load-bump counter
         credential.counter = Some(
             counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
         );
-        // load-bump counter
+        // save credential back, with the updated credential
         let filename = self.filename_for_label(credential.label);
-        try_syscall!(self.trussed.write_file(
-                        Location::Internal,
-                        filename,
-                        postcard_serialize_bytes(&credential).unwrap(),
-                        None
-                    )).map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+        let credential: CredentialCBOR = credential.into();
+        // let serialized: Bytes<SERIALIZED_CREDENTIAL_BUFFER_SIZE> = cbor_serialize_bytes(&credential).unwrap();
+        self.state.try_write_file(&mut self.trussed, filename, &credential)?;
+
         Ok(())
     }
 
@@ -870,29 +875,6 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct Credential<'l> {
-    pub label: &'l [u8],
-    pub kind: oath::Kind,
-    pub algorithm: oath::Algorithm,
-    pub digits: u8,
-    /// What we get here (inspecting the client app) may not be the raw K, but K' in HMAC lingo,
-    /// i.e., If secret.len() < block size (64B for Sha1/Sha256, 128B for Sha512),
-    /// then it's the hash of the secret.  Otherwise, it's the secret, padded to length
-    /// at least 14B with null bytes. This is of no concern to us, as is it does not
-    /// change the MAC.
-    ///
-    /// The 14 is a bit strange: RFC 4226, section 4 says:
-    /// "The algorithm MUST use a strong shared secret.  The length of the shared secret MUST be
-    /// at least 128 bits.  This document RECOMMENDs a shared secret length of 160 bits."
-    ///
-    /// Meanwhile, the client app just pads up to 14B :)
-
-    pub secret: KeyId,
-    pub touch_required: bool,
-    pub counter: Option<u32>,
-}
-
 // impl core::fmt::Debug for Credential<'_> {
 //     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
 //         fmt.debug_struct("Credential")
@@ -907,20 +889,6 @@ pub struct Credential<'l> {
 //     }
 // }
 
-impl<'l> Credential<'l> {
-    fn from(credential: &command::Credential<'l>, key: KeyId) -> Self {
-        Self {
-            label: credential.label,
-            kind: credential.kind,
-            algorithm: credential.algorithm,
-            digits: credential.digits,
-            secret: key,
-            touch_required: credential.touch_required,
-            counter: credential.counter,
-        }
-    }
-}
-
 
 impl<T> iso7816::App for Authenticator<T> {
     fn aid(&self) -> iso7816::Aid {
@@ -931,8 +899,8 @@ impl<T> iso7816::App for Authenticator<T> {
 
 #[cfg(feature = "apdu-dispatch")]
 impl<T, const C: usize, const R: usize> apdu_dispatch::app::App<C, R> for Authenticator<T>
-where
-    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
+    where
+        T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256 + client::Chacha8Poly1305,
 {
     fn select(&mut self, apdu: &iso7816::Command<C>, reply: &mut Data<R>) -> Result {
         self.respond(apdu, reply)
@@ -953,7 +921,8 @@ impl<T> hid::App for Authenticator<T>
     where T: client::Client
     + client::HmacSha1
     + client::HmacSha256
-    + client::Sha256,
+    + client::Sha256
+    + client::Chacha8Poly1305,
 {
     fn commands(&self) -> &'static [HidCommand] {
         &[

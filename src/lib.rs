@@ -6,6 +6,7 @@ generate_macros!();
 
 #[macro_use(hex)]
 extern crate hex_literal;
+extern crate alloc;
 
 pub mod authenticator;
 pub use authenticator::Authenticator;
@@ -14,6 +15,8 @@ pub mod command;
 pub use command::Command;
 pub mod oath;
 pub mod state;
+pub mod encrypted_container;
+mod credential;
 
 // https://git.io/JfWuD
 pub const YUBICO_RID: [u8; 5] = hex!("A000000 527");
@@ -42,3 +45,7 @@ fn ensure<T>(cond: bool, err: T) ->  core::result::Result<(), T> {
     }
 }
 type Result<T = ()>  = iso7816::Result<T>;
+
+// The buffer size for the serialization operation of a single encrypted+serialized credential
+// Size should be about 256 + CBOR overhead (field names) + encryption overhead (nonce+tag)
+const SERIALIZED_CREDENTIAL_BUFFER_SIZE: usize = 1024;
