@@ -248,7 +248,7 @@ impl core::fmt::Debug for Delete<'_> {
         fmt.debug_struct("Credential")
             .field(
                 "label",
-                &core::str::from_utf8(self.label).unwrap_or(&"invalid UTF8 label"),
+                &core::str::from_utf8(self.label).unwrap_or("invalid UTF8 label"),
             )
             .finish()
     }
@@ -306,7 +306,7 @@ impl core::fmt::Debug for Credential<'_> {
         fmt.debug_struct("Credential")
             .field(
                 "label",
-                &core::str::from_utf8(self.label).unwrap_or(&"invalid UTF8 label"),
+                &core::str::from_utf8(self.label).unwrap_or("invalid UTF8 label"),
             ) //(format!("{}", &hex_str!(&self.label))))
             .field("kind", &self.kind)
             .field("alg", &self.algorithm)
@@ -349,8 +349,8 @@ impl<'a> flexiber::Decodable<'a> for Properties {
 }
 impl flexiber::Tagged for Properties {
     fn tag() -> flexiber::Tag {
-        let ret = flexiber::Tag::try_from(oath::Tag::Property as u8).unwrap();
-        ret
+        
+        flexiber::Tag::try_from(oath::Tag::Property as u8).unwrap()
     }
 }
 

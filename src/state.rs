@@ -117,7 +117,7 @@ impl State {
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
-        let kek = self.persistent(trussed, |trussed, state| Ok(state.get_kek(trussed)?))?;
+        let kek = self.persistent(trussed, |trussed, state| state.get_kek(trussed))?;
         Ok(kek)
     }
 
@@ -134,8 +134,8 @@ impl State {
             .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
 
         let kek = self.get_kek(trussed)?;
-        let decrypted_serialized = deserialized_ecs.decrypt(trussed, None, kek);
-        decrypted_serialized
+        
+        deserialized_ecs.decrypt(trussed, None, kek)
     }
 
     pub fn try_read_file<T, O>(
@@ -155,7 +155,7 @@ impl State {
             .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
 
         let kek = self.get_kek(trussed)?;
-        Ok(deserialized_ecs.decrypt(trussed, None, kek)?)
+        deserialized_ecs.decrypt(trussed, None, kek)
     }
 
     pub fn try_persistent<T>(

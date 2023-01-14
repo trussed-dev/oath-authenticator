@@ -122,7 +122,7 @@ impl AnswerToSelect {
         ChallengingAnswerToSelect {
             version: self.version,
             salt: self.salt,
-            challenge: challenge,
+            challenge,
             // algorithm: oath::Algorithm::Sha1  // TODO set proper algo
             algorithm: [0x01], // TODO set proper algo
         }
@@ -231,7 +231,7 @@ where
             Command::SetPassword(set_password) => self.set_password(set_password),
             Command::ClearPassword => self.clear_password(),
             Command::VerifyCode(verify_code) => self.verify_code(verify_code, reply),
-            _ => return Err(Status::ConditionsOfUseNotSatisfied),
+            _ => Err(Status::ConditionsOfUseNotSatisfied),
         }
     }
 
@@ -454,7 +454,7 @@ where
         let credential = Credential::from(&register.credential, key_handle);
 
         // 3. Generate a filename for the credential
-        let filename = self.filename_for_label(&credential.label);
+        let filename = self.filename_for_label(credential.label);
 
         // 4. Serialize the credential
         let credential: CredentialCBOR = credential.into();
@@ -568,7 +568,7 @@ where
         // info_now!("recv {:?}", &calculate);
 
         let credential = self
-            .load_credential(&calculate.label)
+            .load_credential(calculate.label)
             .ok_or(Status::NotFound)?;
 
         if credential.touch_required {
@@ -827,7 +827,7 @@ where
     /// Device will stop verifying the HOTP codes in case, when the difference between the host and on-device counters will be greater or equal to 10.
     fn verify_code<const R: usize>(&mut self, args: VerifyCode, reply: &mut Data<{ R }>) -> Result {
         const COUNTER_WINDOW_SIZE: u32 = 9;
-        let credential = self.load_credential(&args.label).ok_or(Status::NotFound)?;
+        let credential = self.load_credential(args.label).ok_or(Status::NotFound)?;
 
         if credential.touch_required {
             self.user_present()?;
@@ -852,7 +852,7 @@ where
             // and returned to user after overflow, or the same code used each time
             let counter = current_counter
                 .checked_add(offset)
-                .ok_or_else(|| Status::UnspecifiedPersistentExecutionError)?;
+                .ok_or(Status::UnspecifiedPersistentExecutionError)?;
             let code = self
                 .calculate_hotp_code_for_counter(credential, counter)
                 .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
@@ -906,7 +906,7 @@ where
         credential.counter = Some(
             counter
                 .checked_add(1)
-                .ok_or_else(|| Status::UnspecifiedPersistentExecutionError)?,
+                .ok_or(Status::UnspecifiedPersistentExecutionError)?,
         );
         let res = self.calculate_hotp_digest_for_counter(credential, counter)?;
         Ok(res)
@@ -919,7 +919,7 @@ where
         credential.counter = Some(
             counter
                 .checked_add(1)
-                .ok_or_else(|| Status::UnspecifiedPersistentExecutionError)?,
+                .ok_or(Status::UnspecifiedPersistentExecutionError)?,
         );
         // save credential back, with the updated credential
         let filename = self.filename_for_label(credential.label);
@@ -965,7 +965,7 @@ where
     }
 
     fn delay_on_failure(&mut self) {
-        use crate::FAILURE_FORCED_DELAY_MILLISECONDS;
+        
         // TODO block for the time defined in the constant
         // DESIGN allow only a couple of failures per power cycle? Similarly to the FIDO2 PIN
     }
@@ -987,7 +987,7 @@ where
 
 impl<T> iso7816::App for Authenticator<T> {
     fn aid(&self) -> iso7816::Aid {
-        iso7816::Aid::new(&crate::YUBICO_OATH_AID)
+        iso7816::Aid::new(crate::YUBICO_OATH_AID)
     }
 }
 
