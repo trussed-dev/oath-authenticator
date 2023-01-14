@@ -5,10 +5,14 @@ use iso7816::Status;
 use serde::{Deserialize, Serialize};
 // use iso7816::response::Result;
 
-use trussed::{cbor_deserialize, cbor_serialize_bytes, postcard_deserialize, postcard_serialize_bytes, syscall, try_syscall, types::{KeyId, Location, PathBuf}};
-use trussed::types::Message;
 use crate::encrypted_container::EncryptedSerializedCredential;
 use crate::SERIALIZED_CREDENTIAL_BUFFER_SIZE;
+use trussed::types::Message;
+use trussed::{
+    cbor_deserialize, cbor_serialize_bytes, postcard_deserialize, postcard_serialize_bytes,
+    syscall, try_syscall,
+    types::{KeyId, Location, PathBuf},
+};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
@@ -27,7 +31,7 @@ pub struct Persistent {
     /// This is the user's password, passed through PBKDF-HMAC-SHA1.
     /// It is used for authorization using challenge HMAC-SHA1'ing.
     pub authorization_key: Option<KeyId>,
-    kek: Option<KeyId>
+    kek: Option<KeyId>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -58,11 +62,12 @@ impl Persistent {
         self.authorization_key.is_some()
     }
     pub fn get_kek<T>(&mut self, trussed: &mut T) -> trussed::error::Result<KeyId>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305 {
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
+    {
         Ok(match self.kek {
             None => {
-                let r = try_syscall!(trussed.generate_chacha8poly1305_key(Location::Internal))?
-                    .key;
+                let r = try_syscall!(trussed.generate_chacha8poly1305_key(Location::Internal))?.key;
                 self.kek = Some(r);
                 r
             }
@@ -70,7 +75,6 @@ impl Persistent {
         })
     }
 }
-
 
 impl State {
     const FILENAME: &'static str = "state.bin";
@@ -82,37 +86,50 @@ impl State {
     // )
     //     -> Result<(), E>
 
-
-    pub fn try_write_file<T, O>(&mut self, trussed: &mut T, filename: PathBuf, obj: &O) -> crate::Result
-        where T: trussed::Client + trussed::client::Chacha8Poly1305, O: Serialize
+    pub fn try_write_file<T, O>(
+        &mut self,
+        trussed: &mut T,
+        filename: PathBuf,
+        obj: &O,
+    ) -> crate::Result
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
+        O: Serialize,
     {
-        let kek = self.get_kek(trussed)
+        let kek = self
+            .get_kek(trussed)
             .map_err(|_| iso7816::Status::UnspecifiedPersistentExecutionError)?;
         let data = EncryptedSerializedCredential::from_obj(trussed, obj, None, kek).unwrap();
-        let serialized_encrypted_serialized_cred: Bytes<{ SERIALIZED_CREDENTIAL_BUFFER_SIZE }> = cbor_serialize_bytes(&data).unwrap();
+        let serialized_encrypted_serialized_cred: Bytes<{ SERIALIZED_CREDENTIAL_BUFFER_SIZE }> =
+            cbor_serialize_bytes(&data).unwrap();
         try_syscall!(trussed.write_file(
             Location::Internal,
             filename,
-            heapless_bytes::Bytes::from_slice(serialized_encrypted_serialized_cred.as_slice()).unwrap(),
+            heapless_bytes::Bytes::from_slice(serialized_encrypted_serialized_cred.as_slice())
+                .unwrap(),
             None
         ))
-            .map_err(|_| iso7816::Status::NotEnoughMemory)?;
+        .map_err(|_| iso7816::Status::NotEnoughMemory)?;
         Ok(())
     }
 
     pub fn get_kek<T>(&mut self, trussed: &mut T) -> trussed::error::Result<KeyId>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
-        let kek = self.persistent(trussed,
-                                  |trussed, state|
-                                      Ok(state.get_kek(trussed)?)
-        )?;
+        let kek = self.persistent(trussed, |trussed, state| Ok(state.get_kek(trussed)?))?;
         Ok(kek)
     }
 
-    pub fn decrypt_content<T,O>(&mut self, trussed: &mut T, ser_encrypted: Message)  -> trussed::error::Result<O>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305,  for<'a> O: Deserialize<'a> {
-
+    pub fn decrypt_content<T, O>(
+        &mut self,
+        trussed: &mut T,
+        ser_encrypted: Message,
+    ) -> trussed::error::Result<O>
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
+        for<'a> O: Deserialize<'a>,
+    {
         let deserialized_ecs: EncryptedSerializedCredential = cbor_deserialize(&ser_encrypted)
             .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
 
@@ -121,13 +138,16 @@ impl State {
         decrypted_serialized
     }
 
-    pub fn try_read_file<T, O>(&mut self, trussed: &mut T, filename: PathBuf) -> trussed::error::Result<O>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305, O: for <'a> Deserialize<'a>
+    pub fn try_read_file<T, O>(
+        &mut self,
+        trussed: &mut T,
+        filename: PathBuf,
+    ) -> trussed::error::Result<O>
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
+        O: for<'a> Deserialize<'a>,
     {
-        let ser_encrypted = try_syscall!(trussed.read_file(
-            Location::Internal,
-            filename
-        ))?.data;
+        let ser_encrypted = try_syscall!(trussed.read_file(Location::Internal, filename))?.data;
 
         debug_now!("ser_encrypted {:?}", ser_encrypted);
 
@@ -142,10 +162,9 @@ impl State {
         &mut self,
         trussed: &mut T,
         f: impl FnOnce(&mut T, &mut Persistent) -> Result<(), Status>,
-    )
-        -> Result<(), Status>
-        where
-            T: trussed::Client + trussed::client::Chacha8Poly1305,
+    ) -> Result<(), Status>
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
         // 1. If there is serialized, persistent state (i.e., the try_syscall! to `read_file` does
         //    not fail), then assume it is valid and deserialize it. If the reading fails, assume
@@ -157,8 +176,16 @@ impl State {
             try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
                 .map(|response| postcard_deserialize(&response.data).unwrap())
                 .unwrap_or_else(|_| {
-                    let salt: [u8; 8] = syscall!(trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
-                    Persistent { salt, authorization_key: None, kek: None }
+                    let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
+                        .bytes
+                        .as_ref()
+                        .try_into()
+                        .unwrap();
+                    Persistent {
+                        salt,
+                        authorization_key: None,
+                        kek: None,
+                    }
                 });
 
         // 2. Let the app read or modify the state
@@ -170,7 +197,8 @@ impl State {
             PathBuf::from(Self::FILENAME),
             postcard_serialize_bytes(&state).unwrap(),
             None,
-        )).map_err(|_| Status::NotEnoughMemory)?;
+        ))
+        .map_err(|_| Status::NotEnoughMemory)?;
 
         // 4. Return whatever
         result
@@ -178,11 +206,10 @@ impl State {
     pub fn persistent<T, X>(
         &mut self,
         trussed: &mut T,
-        f: impl FnOnce(&mut T, &mut Persistent) -> X
-    )
-        -> X
-        where
-            T: trussed::Client + trussed::client::Chacha8Poly1305,
+        f: impl FnOnce(&mut T, &mut Persistent) -> X,
+    ) -> X
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
         // 1. If there is serialized, persistent state (i.e., the try_syscall! to `read_file` does
         //    not fail), then assume it is valid and deserialize it. If the reading fails, assume
@@ -194,8 +221,16 @@ impl State {
             try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
                 .map(|response| postcard_deserialize(&response.data).unwrap())
                 .unwrap_or_else(|_| {
-                    let salt: [u8; 8] = syscall!(trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
-                    Persistent { salt, authorization_key: None, kek: None }
+                    let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
+                        .bytes
+                        .as_ref()
+                        .try_into()
+                        .unwrap();
+                    Persistent {
+                        salt,
+                        authorization_key: None,
+                        kek: None,
+                    }
                 });
 
         // 2. Let the app read or modify the state
@@ -217,4 +252,3 @@ impl State {
 pub enum CommandState {
     ListCredentials(usize),
 }
-

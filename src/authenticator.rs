@@ -9,12 +9,19 @@ use ctaphid_dispatch::command::VendorCommand;
 
 use flexiber::{Encodable, EncodableHeapless};
 use iso7816::{Data, Status};
-use trussed::{client, syscall, try_syscall, types::{Location, PathBuf}};
+use trussed::{
+    client, syscall, try_syscall,
+    types::{Location, PathBuf},
+};
 
-use crate::{command, Command, ensure, oath, state::{CommandState, State}};
 use crate::command::VerifyCode;
 use crate::credential::{Credential, CredentialCBOR};
 use crate::oath::Kind;
+use crate::{
+    command, ensure, oath,
+    state::{CommandState, State},
+    Command,
+};
 
 /// The TOTP authenticator Trussed® app.
 pub struct Authenticator<T> {
@@ -35,7 +42,11 @@ impl Default for OathVersion {
     /// For ykman, 4.2.6 is the first version to support "touch" requirement
     fn default() -> Self {
         // OathVersion { major: 1, minor: 0, patch: 0}
-        OathVersion { major: 4, minor: 4, patch: 4}
+        OathVersion {
+            major: 4,
+            minor: 4,
+            patch: 4,
+        }
     }
 }
 
@@ -58,12 +69,10 @@ impl flexiber::Encodable for OathVersion {
 // 61 0F 79 03 01 00 00 71 08 01 02 03 04 01 02 03 04 90 00
 #[derive(Clone, Copy, Encodable, Eq, PartialEq)]
 pub struct AnswerToSelect {
-
     #[tlv(simple = "0x79")] // Tag::Version
     version: OathVersion,
     #[tlv(simple = "0x71")] // Tag::Name
     salt: [u8; 8],
-
     // the following is listed as "locked" and "FIPS mode"
     //
     // NB: Current BER-TLV derive macro has limitation that it
@@ -76,7 +85,6 @@ pub struct AnswerToSelect {
 
 #[derive(Clone, Copy, Encodable, Eq, PartialEq)]
 pub struct ChallengingAnswerToSelect {
-
     #[tlv(simple = "0x79")] // Tag::Version
     version: OathVersion,
     #[tlv(simple = "0x71")] // Tag::Name
@@ -116,15 +124,18 @@ impl AnswerToSelect {
             salt: self.salt,
             challenge: challenge,
             // algorithm: oath::Algorithm::Sha1  // TODO set proper algo
-            algorithm: [0x01]  // TODO set proper algo
+            algorithm: [0x01], // TODO set proper algo
         }
     }
 }
 
 impl<T> Authenticator<T>
 where
-    T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256
-    + client::Chacha8Poly1305,
+    T: client::Client
+        + client::HmacSha1
+        + client::HmacSha256
+        + client::Sha256
+        + client::Chacha8Poly1305,
 {
     // const CREDENTIAL_DIRECTORY: &'static str = "cred";
     fn credential_directory() -> PathBuf {
@@ -138,10 +149,14 @@ where
         }
     }
 
-    pub fn respond<const C: usize, const R: usize>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
-    {
-
-        let no_authorization_needed = self.state.persistent(&mut self.trussed, |_, state| !state.password_set());
+    pub fn respond<const C: usize, const R: usize>(
+        &mut self,
+        command: &iso7816::Command<C>,
+        reply: &mut Data<R>,
+    ) -> Result {
+        let no_authorization_needed = self
+            .state
+            .persistent(&mut self.trussed, |_, state| !state.password_set());
 
         // TODO: abstract out this idea to make it usable for all the PIV security indicators
 
@@ -172,14 +187,22 @@ where
         //     self.state.runtime.client_authorized,
         // );
         result
-
     }
 
-    fn inner_respond<const C: usize, const R: usize>(&mut self, command: &iso7816::Command<C>, reply: &mut Data<R>) -> Result
-    {
+    fn inner_respond<const C: usize, const R: usize>(
+        &mut self,
+        command: &iso7816::Command<C>,
+        reply: &mut Data<R>,
+    ) -> Result {
         let class = command.class();
-        ensure(class.chain().last_or_only(), Status::CommandChainingNotSupported)?;
-        ensure(class.secure_messaging().none(), Status::SecureMessagingNotSupported)?;
+        ensure(
+            class.chain().last_or_only(),
+            Status::CommandChainingNotSupported,
+        )?;
+        ensure(
+            class.secure_messaging().none(),
+            Status::SecureMessagingNotSupported,
+        )?;
         ensure(class.channel() == Some(0), Status::ClassNotSupported)?;
 
         // parse Iso7816Command as PivCommand
@@ -212,19 +235,30 @@ where
         }
     }
 
-    pub fn select<const R: usize>(&mut self, _select: command::Select<'_>, reply: &mut Data<R>) -> Result
-    {
-        self.state.runtime.challenge =
-            syscall!(self.trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
+    pub fn select<const R: usize>(
+        &mut self,
+        _select: command::Select<'_>,
+        reply: &mut Data<R>,
+    ) -> Result {
+        self.state.runtime.challenge = syscall!(self.trussed.random_bytes(8))
+            .bytes
+            .as_ref()
+            .try_into()
+            .unwrap();
 
-        let state = self.state.persistent(&mut self.trussed, |_, state| state.clone() );
+        let state = self
+            .state
+            .persistent(&mut self.trussed, |_, state| state.clone());
         let answer_to_select = AnswerToSelect::new(state.salt);
 
         let data: heapless::Vec<u8, 128> = if state.password_set() {
-            answer_to_select.with_challenge(self.state.runtime.challenge).to_heapless_vec()
+            answer_to_select
+                .with_challenge(self.state.runtime.challenge)
+                .to_heapless_vec()
         } else {
             answer_to_select.to_heapless_vec()
-        }.unwrap();
+        }
+        .unwrap();
 
         reply.extend_from_slice(&data).unwrap();
         Ok(())
@@ -233,7 +267,8 @@ where
     fn load_credential<'a>(&mut self, label: &'a [u8]) -> Option<Credential<'a>> {
         let filename = self.filename_for_label(label);
 
-        let credential: CredentialCBOR = self.state.try_read_file(&mut self.trussed, filename).ok()?;
+        let credential: CredentialCBOR =
+            self.state.try_read_file(&mut self.trussed, filename).ok()?;
 
         let credential = Credential {
             label,
@@ -262,13 +297,13 @@ where
         try_syscall!(self.trussed.delete_all(Location::Internal))
             .map_err(|_| Status::NotEnoughMemory)?;
 
-
         debug_now!(":: reset - delete all files");
         // make sure all other files are removed as well
         // NB: This deletes state.bin too, so it removes a possibly set password and kek key.
-        try_syscall!(self.trussed.remove_dir_all(Location::Internal, PathBuf::new()))
-            .map_err(|_| Status::NotEnoughMemory)?;
-
+        try_syscall!(self
+            .trussed
+            .remove_dir_all(Location::Internal, PathBuf::new()))
+        .map_err(|_| Status::NotEnoughMemory)?;
 
         self.state.runtime.reset();
 
@@ -302,17 +337,22 @@ where
 
             let _filename = self.filename_for_label(label);
             if try_syscall!(self.trussed.remove_file(Location::Internal, _filename)).is_err() {
-                debug_now!("could not delete credential with filename {}", &self.filename_for_label(label));
+                debug_now!(
+                    "could not delete credential with filename {}",
+                    &self.filename_for_label(label)
+                );
             } else {
-                debug_now!("deleted credential with filename {}", &self.filename_for_label(label));
+                debug_now!(
+                    "deleted credential with filename {}",
+                    &self.filename_for_label(label)
+                );
             }
         }
         Ok(Default::default())
     }
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
-    pub fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result
-    {
+    pub fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -328,10 +368,11 @@ where
             Location::Internal,
             Self::credential_directory(),
             None
-        )).data;
+        ))
+        .data;
         let mut maybe_credential: Option<CredentialCBOR> = match maybe_credential_enc {
             None => None,
-            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
         };
 
         let mut file_index = 0;
@@ -353,28 +394,29 @@ where
             // label
             reply.push(0x72).unwrap();
             reply.push((credential.label.len() + 1) as u8).unwrap();
-            reply.push(oath::combine(credential.kind, credential.algorithm)).unwrap();
+            reply
+                .push(oath::combine(credential.kind, credential.algorithm))
+                .unwrap();
             reply.extend_from_slice(credential.label).unwrap();
 
             // check if there's more
             maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
                 None => None,
-                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
             };
 
             if file_index % 8 == 0 {
                 // TODO: split response
             }
-                // get_data = _encode_extended_apdu(0, self._ins_send_remaining, 0, 0, b"")
+            // get_data = _encode_extended_apdu(0, self._ins_send_remaining, 0, 0, b"")
             // else:
-                // raise TypeError("Invalid ApduFormat set")
+            // raise TypeError("Invalid ApduFormat set")
 
             // # Read chained response
             // buf = b""
             // while sw >> 8 == SW1_HAS_MORE_DATA:
-                // buf += response
-                // response, sw = self.connection.send_and_receive(get_data)
-
+            // buf += response
+            // response, sw = self.connection.send_and_receive(get_data)
         }
 
         // ran to completion
@@ -394,13 +436,17 @@ where
         // 0. ykman does not call delete before register, so we need to speculatively
         // delete the credential (the credential file would be replaced, but we need
         // to delete the secret key).
-        self.delete(command::Delete { label: register.credential.label }).ok();
+        self.delete(command::Delete {
+            label: register.credential.label,
+        })
+        .ok();
 
         // 1. Store secret in Trussed
         let raw_key = register.credential.secret;
-        let key_handle = try_syscall!(
-            self.trussed.unsafe_inject_shared_key(raw_key, Location::Internal)
-        ).map_err(|_| Status::NotEnoughMemory)?
+        let key_handle = try_syscall!(self
+            .trussed
+            .unsafe_inject_shared_key(raw_key, Location::Internal))
+        .map_err(|_| Status::NotEnoughMemory)?
         .key;
         // info!("new key handle: {:?}", key_handle);
 
@@ -414,20 +460,20 @@ where
         let credential: CredentialCBOR = credential.into();
 
         // 5. Store it
-        self.state.try_write_file(&mut self.trussed, filename, &credential)?;
+        self.state
+            .try_write_file(&mut self.trussed, filename, &credential)?;
         Ok(())
     }
 
     fn filename_for_label(&mut self, label: &[u8]) -> trussed::types::PathBuf {
-        let label_hash = syscall!(self.trussed.hash_sha256(label))
-            .hash;
+        let label_hash = syscall!(self.trussed.hash_sha256(label)).hash;
 
         // todo: maybe use a counter instead (put it in our persistent state).
         let mut hex_filename = [0u8; 16];
         const LOOKUP: &[u8; 16] = b"0123456789ABCDEF";
         for (i, &value) in label_hash.iter().take(8).enumerate() {
-            hex_filename[2*i] = LOOKUP[(value >> 4) as usize];
-            hex_filename[2*i + 1] = LOOKUP[(value & 0xF) as usize];
+            hex_filename[2 * i] = LOOKUP[(value >> 4) as usize];
+            hex_filename[2 * i + 1] = LOOKUP[(value & 0xF) as usize];
         }
 
         let filename = PathBuf::from(hex_filename.as_ref());
@@ -452,8 +498,11 @@ where
     //       06  <- digits
     //       5A D0 A7 CA <- dynamically truncated HMAC
     // 90 00
-    pub fn calculate_all<const R: usize>(&mut self, calculate_all: command::CalculateAll<'_>, reply: &mut Data<R>) -> Result
-    {
+    pub fn calculate_all<const R: usize>(
+        &mut self,
+        calculate_all: command::CalculateAll<'_>,
+        reply: &mut Data<R>,
+    ) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -462,10 +511,11 @@ where
             Location::Internal,
             Self::credential_directory(),
             None
-        )).data;
+        ))
+        .data;
         let mut maybe_credential: Option<CredentialCBOR> = match maybe_credential_enc {
             None => None,
-            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
         };
 
         while let Some(credential) = maybe_credential {
@@ -499,23 +549,27 @@ where
             // check if there's more
             maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
                 None => None,
-                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok()
+                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
             };
-
         }
 
         // ran to completion
         Ok(())
     }
 
-    pub fn calculate<const R: usize>(&mut self, calculate: command::Calculate<'_>, reply: &mut Data<R>) -> Result
-    {
+    pub fn calculate<const R: usize>(
+        &mut self,
+        calculate: command::Calculate<'_>,
+        reply: &mut Data<R>,
+    ) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         // info_now!("recv {:?}", &calculate);
 
-        let credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
+        let credential = self
+            .load_credential(&calculate.label)
+            .ok_or(Status::NotFound)?;
 
         if credential.touch_required {
             self.user_present()?;
@@ -523,11 +577,11 @@ where
 
         let truncated_digest = match credential.kind {
             oath::Kind::Totp => crate::calculate::calculate(
-                    &mut self.trussed,
-                    credential.algorithm,
-                    calculate.challenge,
-                    credential.secret,
-                )?,
+                &mut self.trussed,
+                credential.algorithm,
+                calculate.challenge,
+                credential.secret,
+            )?,
             oath::Kind::Hotp => {
                 if let Some(counter) = credential.counter {
                     self.calculate_hotp_digest_and_bump_counter(credential, counter)?
@@ -535,7 +589,7 @@ where
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
                 }
-            },
+            }
             Kind::HotpReverse => {
                 // This credential kind should never be access through calculate()
                 return Err(Status::SecurityStatusNotSatisfied);
@@ -561,24 +615,35 @@ where
         Ok(())
     }
 
-    pub fn validate<const R: usize>(&mut self, validate: command::Validate<'_>, reply: &mut Data<R>) -> Result
-    {
-        let command::Validate { response, challenge } = validate;
+    pub fn validate<const R: usize>(
+        &mut self,
+        validate: command::Validate<'_>,
+        reply: &mut Data<R>,
+    ) -> Result {
+        let command::Validate {
+            response,
+            challenge,
+        } = validate;
 
-        if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| state.authorization_key) {
+        if let Some(key) = self
+            .state
+            .persistent(&mut self.trussed, |_, state| state.authorization_key)
+        {
             debug_now!("key set: {:?}", key);
 
             // 1. verify what the client sent (rotating challenge)
-            let verification =
-                try_syscall!(self.trussed.sign_hmacsha1(key, &self.state.runtime.challenge))
-                .map_err(|_| Status::NotEnoughMemory)?
-                .signature;
+            let verification = try_syscall!(self
+                .trussed
+                .sign_hmacsha1(key, &self.state.runtime.challenge))
+            .map_err(|_| Status::NotEnoughMemory)?
+            .signature;
 
-            self.state.runtime.challenge =
-                try_syscall!(self.trussed.random_bytes(8))
-                    .map_err(|_| Status::NotEnoughMemory)?
-                    .bytes.as_ref().try_into()
-                    .map_err(|_| Status::NotEnoughMemory)?;
+            self.state.runtime.challenge = try_syscall!(self.trussed.random_bytes(8))
+                .map_err(|_| Status::NotEnoughMemory)?
+                .bytes
+                .as_ref()
+                .try_into()
+                .map_err(|_| Status::NotEnoughMemory)?;
 
             if verification != response {
                 return Err(Status::IncorrectDataParameter);
@@ -594,9 +659,11 @@ where
             reply.push(0x75).ok();
             reply.push(20).ok();
             reply.extend_from_slice(&response).ok();
-            debug_now!("validated client! client_newly_authorized = {}", self.state.runtime.client_newly_authorized);
+            debug_now!(
+                "validated client! client_newly_authorized = {}",
+                self.state.runtime.client_newly_authorized
+            );
             Ok(())
-
         } else {
             Err(Status::ConditionsOfUseNotSatisfied)
         }
@@ -613,7 +680,6 @@ where
 
         // pub response: &'l [u8; 20],
         // pub challenge: &'l [u8; 8],
-
     }
 
     pub fn clear_password(&mut self) -> Result {
@@ -694,7 +760,13 @@ where
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
 
-        let command::SetPassword { kind, algorithm, key, challenge, response } = set_password;
+        let command::SetPassword {
+            kind,
+            algorithm,
+            key,
+            challenge,
+            response,
+        } = set_password;
 
         info_now!("just checking");
         if kind != oath::Kind::Totp || algorithm != oath::Algorithm::Sha1 {
@@ -702,10 +774,10 @@ where
         }
 
         info_now!("injecting the key");
-        let tmp_key = syscall!(self.trussed.unsafe_inject_shared_key(
-            key,
-            Location::Volatile,
-        )).key;
+        let tmp_key = syscall!(self
+            .trussed
+            .unsafe_inject_shared_key(key, Location::Volatile,))
+        .key;
 
         let verification = syscall!(self.trussed.sign_hmacsha1(tmp_key, challenge)).signature;
         syscall!(self.trussed.delete(tmp_key));
@@ -716,17 +788,19 @@ where
         }
 
         // all-right, we have a new password to set
-        let key = try_syscall!(self.trussed.unsafe_inject_shared_key(
-            key,
-            Location::Internal,
-        )).map_err(|_| Status::NotEnoughMemory)?
+        let key = try_syscall!(self
+            .trussed
+            .unsafe_inject_shared_key(key, Location::Internal,))
+        .map_err(|_| Status::NotEnoughMemory)?
         .key;
 
         // self.state::persistent(trussed, |trussed, state| {
         //     state.authorization_key = Some(key);
         // });
         debug_now!("storing password/key");
-        self.state.persistent(&mut self.trussed, |_, state| { state.authorization_key = Some(key) } );
+        self.state.persistent(&mut self.trussed, |_, state| {
+            state.authorization_key = Some(key)
+        });
 
         // pub struct SetPassword<'l> {
         //     pub kind: oath::Kind,
@@ -769,15 +843,19 @@ where
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
                 }
-            },
+            }
             _ => return Err(Status::ConditionsOfUseNotSatisfied),
         };
         let mut found = None;
         for offset in 0..=COUNTER_WINDOW_SIZE {
             // Do abort with error on the max value, so these could not be pregenerated,
             // and returned to user after overflow, or the same code used each time
-            let counter = current_counter.checked_add(offset).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?;
-            let code = self.calculate_hotp_code_for_counter(credential, counter).map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+            let counter = current_counter
+                .checked_add(offset)
+                .ok_or_else(|| Status::UnspecifiedPersistentExecutionError)?;
+            let code = self
+                .calculate_hotp_code_for_counter(credential, counter)
+                .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
             if code == code_in {
                 found = Some(counter);
                 break;
@@ -791,7 +869,7 @@ where
                 self.delay_on_failure();
                 return Err(Status::VerificationFailed);
             }
-            Some(val) => val
+            Some(val) => val,
         };
 
         self.bump_counter_for_cred(credential, found)?;
@@ -804,18 +882,31 @@ where
         Ok(())
     }
 
-    fn calculate_hotp_code_for_counter(&mut self, credential: Credential, counter: u32) -> iso7816::Result<u32> {
+    fn calculate_hotp_code_for_counter(
+        &mut self,
+        credential: Credential,
+        counter: u32,
+    ) -> iso7816::Result<u32> {
         let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter)?;
         let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
-        let code = (truncated_code & 0x7FFFFFFF) % 10u32.checked_pow(credential.digits as _).ok_or(Status::UnspecifiedPersistentExecutionError)?;
+        let code = (truncated_code & 0x7FFFFFFF)
+            % 10u32
+                .checked_pow(credential.digits as _)
+                .ok_or(Status::UnspecifiedPersistentExecutionError)?;
         debug_now!("Code for ({:?},{}): {}", credential.label, counter, code);
         Ok(code)
     }
 
-    fn calculate_hotp_digest_and_bump_counter(&mut self, mut credential: Credential, counter: u32) -> iso7816::Result<[u8; 4]> {
+    fn calculate_hotp_digest_and_bump_counter(
+        &mut self,
+        mut credential: Credential,
+        counter: u32,
+    ) -> iso7816::Result<[u8; 4]> {
         self.bump_counter_for_cred(credential, counter)?;
         credential.counter = Some(
-            counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
+            counter
+                .checked_add(1)
+                .ok_or_else(|| Status::UnspecifiedPersistentExecutionError)?,
         );
         let res = self.calculate_hotp_digest_for_counter(credential, counter)?;
         Ok(res)
@@ -826,18 +917,25 @@ where
         // and returned to user after overflow, or the same code used each time
         // load-bump counter
         credential.counter = Some(
-            counter.checked_add(1).ok_or_else(|| Status::UnspecifiedPersistentExecutionError )?
+            counter
+                .checked_add(1)
+                .ok_or_else(|| Status::UnspecifiedPersistentExecutionError)?,
         );
         // save credential back, with the updated credential
         let filename = self.filename_for_label(credential.label);
         let credential: CredentialCBOR = credential.into();
         // let serialized: Bytes<SERIALIZED_CREDENTIAL_BUFFER_SIZE> = cbor_serialize_bytes(&credential).unwrap();
-        self.state.try_write_file(&mut self.trussed, filename, &credential)?;
+        self.state
+            .try_write_file(&mut self.trussed, filename, &credential)?;
 
         Ok(())
     }
 
-    fn calculate_hotp_digest_for_counter(&mut self, credential: Credential, counter: u32) -> Result<[u8; 4]> {
+    fn calculate_hotp_digest_for_counter(
+        &mut self,
+        credential: Credential,
+        counter: u32,
+    ) -> Result<[u8; 4]> {
         let counter_long: u64 = counter.into();
         crate::calculate::calculate(
             &mut self.trussed,
@@ -847,9 +945,7 @@ where
         )
     }
 
-    fn user_present(
-        &mut self,
-    ) -> Result {
+    fn user_present(&mut self) -> Result {
         use crate::UP_TIMEOUT_MILLISECONDS;
         let result = syscall!(self.trussed.confirm_user_present(UP_TIMEOUT_MILLISECONDS)).result;
         result.map_err(|err| match err {
@@ -868,7 +964,7 @@ where
         syscall!(self.trussed.wink(Duration::from_secs(10)));
     }
 
-    fn delay_on_failure(&mut self){
+    fn delay_on_failure(&mut self) {
         use crate::FAILURE_FORCED_DELAY_MILLISECONDS;
         // TODO block for the time defined in the constant
         // DESIGN allow only a couple of failures per power cycle? Similarly to the FIDO2 PIN
@@ -889,26 +985,34 @@ where
 //     }
 // }
 
-
 impl<T> iso7816::App for Authenticator<T> {
     fn aid(&self) -> iso7816::Aid {
         iso7816::Aid::new(&crate::YUBICO_OATH_AID)
     }
 }
 
-
 #[cfg(feature = "apdu-dispatch")]
 impl<T, const C: usize, const R: usize> apdu_dispatch::app::App<C, R> for Authenticator<T>
-    where
-        T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256 + client::Chacha8Poly1305,
+where
+    T: client::Client
+        + client::HmacSha1
+        + client::HmacSha256
+        + client::Sha256
+        + client::Chacha8Poly1305,
 {
     fn select(&mut self, apdu: &iso7816::Command<C>, reply: &mut Data<R>) -> Result {
         self.respond(apdu, reply)
     }
 
-    fn deselect(&mut self) { /*self.deselect()*/ }
+    fn deselect(&mut self) { /*self.deselect()*/
+    }
 
-    fn call(&mut self, _: iso7816::Interface, apdu: &iso7816::Command<C>, reply: &mut Data<R>) -> Result {
+    fn call(
+        &mut self,
+        _: iso7816::Interface,
+        apdu: &iso7816::Command<C>,
+        reply: &mut Data<R>,
+    ) -> Result {
         self.respond(apdu, reply)
     }
 }
@@ -918,26 +1022,30 @@ const OTP_CCID: VendorCommand = VendorCommand::H70;
 
 #[cfg(feature = "ctaphid")]
 impl<T> hid::App for Authenticator<T>
-    where T: client::Client
-    + client::HmacSha1
-    + client::HmacSha256
-    + client::Sha256
-    + client::Chacha8Poly1305,
+where
+    T: client::Client
+        + client::HmacSha1
+        + client::HmacSha256
+        + client::Sha256
+        + client::Chacha8Poly1305,
 {
     fn commands(&self) -> &'static [HidCommand] {
-        &[
-            HidCommand::Vendor(OTP_CCID),
-        ]
+        &[HidCommand::Vendor(OTP_CCID)]
     }
 
-    fn call(&mut self, command: HidCommand, input_data: &Message, response: &mut Message) -> hid::AppResult {
+    fn call(
+        &mut self,
+        command: HidCommand,
+        input_data: &Message,
+        response: &mut Message,
+    ) -> hid::AppResult {
         const MAX_COMMAND_LENGTH: usize = 255;
         match command {
             HidCommand::Vendor(OTP_CCID) => {
                 let arr: [u8; 2] = Status::Success.into();
                 response.extend(arr);
-                let ctap_to_iso7816_command = iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data)
-                    .map_err(|_e| {
+                let ctap_to_iso7816_command =
+                    iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data).map_err(|_e| {
                         response.clear();
                         debug_now!("ISO conversion error: {:?}", _e);
                         hid::Error::InvalidLength
@@ -949,7 +1057,8 @@ impl<T> hid::App for Authenticator<T>
                         response.clear();
                         response.extend(arr);
                         hid::Error::InvalidCommand
-                    }).ok();
+                    })
+                    .ok();
             }
             _ => {
                 return Err(hid::Error::InvalidCommand);
@@ -958,4 +1067,3 @@ impl<T> hid::App for Authenticator<T>
         Ok(())
     }
 }
-

@@ -1,20 +1,20 @@
+use crate::{command, oath};
 use serde::{Deserialize, Serialize};
 use trussed::types::{KeyId, ShortData};
-use crate::{command, oath};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CredentialCBOR<'l> {
     #[serde(rename = "L")]
     pub label: ShortData,
     #[serde(rename = "C")]
-    pub cred:  Credential<'l>,
+    pub cred: Credential<'l>,
 }
 
 impl<'l> From<Credential<'l>> for CredentialCBOR<'l> {
     fn from(credential: Credential<'l>) -> Self {
-        CredentialCBOR{
+        CredentialCBOR {
             label: ShortData::from_slice(credential.label).unwrap(),
-            cred: credential
+            cred: credential,
         }
     }
 }

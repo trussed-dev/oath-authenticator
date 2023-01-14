@@ -1,9 +1,9 @@
 use core::convert::TryInto;
 use iso7816::Status;
 
+use crate::oath;
 use crate::Result;
 use trussed::{client, try_syscall, types::KeyId};
-use crate::oath;
 
 /// The core calculation
 ///
@@ -12,8 +12,12 @@ use crate::oath;
 ///
 /// [rfc-4226]: https://tools.ietf.org/html/rfc4226
 /// [rfc-6238]: https://tools.ietf.org/html/rfc6238
-pub fn calculate<T>(trussed: &mut T, algorithm: oath::Algorithm, challenge: &[u8], key: KeyId)
-    -> Result<[u8; 4]>
+pub fn calculate<T>(
+    trussed: &mut T,
+    algorithm: oath::Algorithm,
+    challenge: &[u8],
+    key: KeyId,
+) -> Result<[u8; 4]>
 where
     T: client::Client + client::HmacSha1 + client::HmacSha256 + client::Sha256,
 {
@@ -51,7 +55,6 @@ fn dynamic_truncation(digest: &[u8]) -> u32 {
     p & 0x7fff_ffff
 }
 
-
 // fn hmac_and_truncate(key: &[u8], message: &[u8], digits: u32) -> u64 {
 //     use hmac::{Hmac, Mac, NewMac};
 //     // let mut hmac = Hmac::<D>::new(GenericArray::from_slice(key));
@@ -67,4 +70,3 @@ fn dynamic_truncation(digest: &[u8]) -> u32 {
 
 //     dynamic_truncation(&hs) % 10_u64.pow(digits)
 // }
-

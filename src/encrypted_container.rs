@@ -1,13 +1,13 @@
-use serde::{Deserialize, Serialize};
-use trussed::{cbor_deserialize, cbor_serialize, try_syscall};
-use trussed::Error::InvalidSerializationFormat;
-use trussed::types::{KeyId, Message};
 use crate::SERIALIZED_CREDENTIAL_BUFFER_SIZE;
+use serde::{Deserialize, Serialize};
+use trussed::types::{KeyId, Message};
+use trussed::Error::InvalidSerializationFormat;
+use trussed::{cbor_deserialize, cbor_serialize, try_syscall};
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct EncryptedSerializedCredential{
+pub struct EncryptedSerializedCredential {
     #[serde(rename = "D")]
-    pub data:  trussed::types::Message,
+    pub data: trussed::types::Message,
     #[serde(rename = "T")]
     pub tag: trussed::types::ShortData,
     #[serde(rename = "N")]
@@ -25,8 +25,7 @@ impl TryFrom<&[u8]> for EncryptedSerializedCredential {
     //fixme use own errors
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let credential = cbor_deserialize(value)
-            .map_err(|_| InvalidSerializationFormat)?;
+        let credential = cbor_deserialize(value).map_err(|_| InvalidSerializationFormat)?;
         Ok(credential)
     }
 }
@@ -38,33 +37,46 @@ impl TryFrom<EncryptedSerializedCredential> for Message {
     fn try_from(value: EncryptedSerializedCredential) -> Result<Self, Self::Error> {
         let mut buf = [0u8; SERIALIZED_CREDENTIAL_BUFFER_SIZE];
         let r = cbor_serialize(&value, &mut buf)
-            .map_err(|_| trussed::error::Error::InvalidSerializationFormat)
-            ?;
-        let bytes = Message::from_slice(r).map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
+            .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
+        let bytes = Message::from_slice(r)
+            .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
         Ok(bytes)
     }
 }
 
 impl EncryptedSerializedCredential {
-
     // fn from_buffer<T>(trussed: &mut T, message: &[u8], aead: Option<&[u8]>, key_encryption_key: KeyId) -> trussed::error::Result<EncryptedSerializedCredential>
     //     where T: trussed::Client + trussed::client::Chacha8Poly1305 {
     //     Self::encrypt(trussed, message, aead, key_encryption_key)
     // }
 
-    pub fn from_obj<T,O>(trussed: &mut T, obj: &O, aead: Option<&[u8]>, key_encryption_key: KeyId) -> trussed::error::Result<EncryptedSerializedCredential>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305 , O: Serialize{
+    pub fn from_obj<T, O>(
+        trussed: &mut T,
+        obj: &O,
+        aead: Option<&[u8]>,
+        key_encryption_key: KeyId,
+    ) -> trussed::error::Result<EncryptedSerializedCredential>
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
+        O: Serialize,
+    {
         let mut buf = [0u8; SERIALIZED_CREDENTIAL_BUFFER_SIZE];
         let message = cbor_serialize(obj, &mut buf).unwrap();
         Self::encrypt_message(trussed, message, aead, key_encryption_key)
     }
 
-    pub fn encrypt_message<T>(trussed: &mut T, message: &[u8], aead: Option<&[u8]>, key_encryption_key: KeyId) -> trussed::error::Result<EncryptedSerializedCredential>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305 {
-
+    pub fn encrypt_message<T>(
+        trussed: &mut T,
+        message: &[u8],
+        aead: Option<&[u8]>,
+        key_encryption_key: KeyId,
+    ) -> trussed::error::Result<EncryptedSerializedCredential>
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
+    {
         #[cfg(feature = "no-encrypted-credentials")]
         {
-            return Ok(EncryptedSerializedCredential{
+            return Ok(EncryptedSerializedCredential {
                 data: Message::from_slice(&message).unwrap(),
                 nonce: Default::default(),
                 tag: Default::default(),
@@ -73,15 +85,16 @@ impl EncryptedSerializedCredential {
             });
         }
 
-
         // nonce is provided internally via internal per-key counter, hence not passed here
-        let encryption_results = try_syscall!(
-                trussed
-                .encrypt_chacha8poly1305(key_encryption_key, message,
-                aead.unwrap_or_default(), None)
-            ).unwrap();
+        let encryption_results = try_syscall!(trussed.encrypt_chacha8poly1305(
+            key_encryption_key,
+            message,
+            aead.unwrap_or_default(),
+            None
+        ))
+        .unwrap();
 
-        let encrypted_serialized_credential = EncryptedSerializedCredential{
+        let encrypted_serialized_credential = EncryptedSerializedCredential {
             data: Message::from_slice(&encryption_results.ciphertext).unwrap(),
             nonce: encryption_results.nonce,
             tag: encryption_results.tag,
@@ -89,17 +102,29 @@ impl EncryptedSerializedCredential {
         Ok(encrypted_serialized_credential)
     }
 
-
-    pub fn decrypt<T, O>(&self, trussed: &mut T, aead: Option<&[u8]>, key_encryption_key: KeyId) -> trussed::error::Result<O>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305, O: for <'a> Deserialize<'a>
+    pub fn decrypt<T, O>(
+        &self,
+        trussed: &mut T,
+        aead: Option<&[u8]>,
+        key_encryption_key: KeyId,
+    ) -> trussed::error::Result<O>
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
+        O: for<'a> Deserialize<'a>,
     {
         let message = self.decrypt_to_serialized(trussed, aead, key_encryption_key)?;
         Ok(cbor_deserialize(&message)
             .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?)
     }
 
-    pub fn decrypt_to_serialized<T>(&self, trussed: &mut T, aead: Option<&[u8]>, key_encryption_key: KeyId) -> trussed::error::Result<Message>
-        where T: trussed::Client + trussed::client::Chacha8Poly1305
+    pub fn decrypt_to_serialized<T>(
+        &self,
+        trussed: &mut T,
+        aead: Option<&[u8]>,
+        key_encryption_key: KeyId,
+    ) -> trussed::error::Result<Message>
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
         let esc = self;
 
@@ -119,11 +144,10 @@ impl EncryptedSerializedCredential {
             &esc.nonce,
             &esc.tag
         ))
-            .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?
-            .plaintext
-            .ok_or(trussed::Error::InvalidSerializationFormat)?;
+        .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?
+        .plaintext
+        .ok_or(trussed::Error::InvalidSerializationFormat)?;
 
         Ok(serialized)
     }
-
 }
