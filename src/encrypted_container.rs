@@ -113,8 +113,7 @@ impl EncryptedSerializedCredential {
         O: for<'a> Deserialize<'a>,
     {
         let message = self.decrypt_to_serialized(trussed, aead, key_encryption_key)?;
-        cbor_deserialize(&message)
-            .map_err(|_| trussed::error::Error::InvalidSerializationFormat)
+        cbor_deserialize(&message).map_err(|_| trussed::error::Error::InvalidSerializationFormat)
     }
 
     pub fn decrypt_to_serialized<T>(

@@ -134,7 +134,7 @@ impl State {
             .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
 
         let kek = self.get_kek(trussed)?;
-        
+
         deserialized_ecs.decrypt(trussed, None, kek)
     }
 

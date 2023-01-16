@@ -349,7 +349,6 @@ impl<'a> flexiber::Decodable<'a> for Properties {
 }
 impl flexiber::Tagged for Properties {
     fn tag() -> flexiber::Tag {
-        
         flexiber::Tag::try_from(oath::Tag::Property as u8).unwrap()
     }
 }
