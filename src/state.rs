@@ -1,16 +1,14 @@
 use core::convert::TryInto;
-use heapless_bytes::Bytes;
 
 use iso7816::Status;
 use serde::{Deserialize, Serialize};
 // use iso7816::response::Result;
 
-use crate::encrypted_container::EncryptedSerializedCredential;
-use crate::SERIALIZED_CREDENTIAL_BUFFER_SIZE;
+use crate::encrypted_container;
+use crate::encrypted_container::EncryptedDataContainer;
 use trussed::types::Message;
 use trussed::{
-    cbor_deserialize, cbor_serialize_bytes, postcard_deserialize, postcard_serialize_bytes,
-    syscall, try_syscall,
+    postcard_deserialize, postcard_serialize_bytes, syscall, try_syscall,
     types::{KeyId, Location, PathBuf},
 };
 
@@ -79,13 +77,6 @@ impl Persistent {
 impl State {
     const FILENAME: &'static str = "state.bin";
 
-    // pub fn persistent<E, T>(
-    //     &mut self,
-    //     trussed: &mut T,
-    //     f: impl FnOnce(&mut T, &mut Persistent) -> core::result::Result<(), E>
-    // )
-    //     -> Result<(), E>
-
     pub fn try_write_file<T, O>(
         &mut self,
         trussed: &mut T,
@@ -99,17 +90,14 @@ impl State {
         let kek = self
             .get_kek(trussed)
             .map_err(|_| iso7816::Status::UnspecifiedPersistentExecutionError)?;
-        let data = EncryptedSerializedCredential::from_obj(trussed, obj, None, kek).unwrap();
-        let serialized_encrypted_serialized_cred: Bytes<{ SERIALIZED_CREDENTIAL_BUFFER_SIZE }> =
-            cbor_serialize_bytes(&data).unwrap();
-        try_syscall!(trussed.write_file(
-            Location::Internal,
-            filename,
-            heapless_bytes::Bytes::from_slice(serialized_encrypted_serialized_cred.as_slice())
-                .unwrap(),
-            None
-        ))
-        .map_err(|_| iso7816::Status::NotEnoughMemory)?;
+        let data = EncryptedDataContainer::from_obj(trussed, obj, None, kek)
+            .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+        let data_serialized: Message = data
+            .try_into()
+            .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+        debug_now!("Container size: {}", data_serialized.len());
+        try_syscall!(trussed.write_file(Location::Internal, filename, data_serialized, None))
+            .map_err(|_| iso7816::Status::NotEnoughMemory)?;
         Ok(())
     }
 
@@ -125,17 +113,16 @@ impl State {
         &mut self,
         trussed: &mut T,
         ser_encrypted: Message,
-    ) -> trussed::error::Result<O>
+    ) -> encrypted_container::Result<O>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
         for<'a> O: Deserialize<'a>,
     {
-        let deserialized_ecs: EncryptedSerializedCredential = cbor_deserialize(&ser_encrypted)
-            .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
+        let kek = self
+            .get_kek(trussed)
+            .map_err(|_| encrypted_container::Error::FailedDecryption)?;
 
-        let kek = self.get_kek(trussed)?;
-
-        deserialized_ecs.decrypt(trussed, None, kek)
+        EncryptedDataContainer::decrypt_from_bytes(trussed, ser_encrypted, kek)
     }
 
     pub fn try_read_file<T, O>(
@@ -151,11 +138,8 @@ impl State {
 
         debug_now!("ser_encrypted {:?}", ser_encrypted);
 
-        let deserialized_ecs: EncryptedSerializedCredential = cbor_deserialize(&ser_encrypted)
-            .map_err(|_| trussed::error::Error::InvalidSerializationFormat)?;
-
-        let kek = self.get_kek(trussed)?;
-        deserialized_ecs.decrypt(trussed, None, kek)
+        self.decrypt_content(trussed, ser_encrypted)
+            .map_err(|e| e.into())
     }
 
     pub fn try_persistent<T>(

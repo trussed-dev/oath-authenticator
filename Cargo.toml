@@ -9,7 +9,7 @@ description = "OATH authenticator Trussed app"
 
 [dependencies]
 apdu-dispatch = { version = "0.1",  optional = true }
-delog = "0.1.2"
+delog = "0.1.6"
 flexiber = { version = "0.1.0", features = ["derive", "heapless"] }
 heapless = "0.7"
 heapless-bytes = "0.3"
@@ -29,8 +29,13 @@ pretty_env_logger = "0.4.0"
 
 
 [features]
-default = ["apdu-dispatch", "log-all"]
+default = ["apdu-dispatch"]
+devel = ["apdu-dispatch", "log-all", "delog/std-log"]
+
+# Allow to use application over CTAPHID interface
 ctaphid = ["ctaphid-dispatch", "usbd-ctaphid"]
+
+# Do not run the actual encryption of the credentials.
 no-encrypted-credentials = []
 
 log-all = []

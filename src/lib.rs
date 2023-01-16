@@ -45,7 +45,3 @@ fn ensure<T>(cond: bool, err: T) -> core::result::Result<(), T> {
     }
 }
 type Result<T = ()> = iso7816::Result<T>;
-
-// The buffer size for the serialization operation of a single encrypted+serialized credential
-// Size should be about 256 + CBOR overhead (field names) + encryption overhead (nonce+tag)
-const SERIALIZED_CREDENTIAL_BUFFER_SIZE: usize = 1024;

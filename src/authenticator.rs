@@ -256,6 +256,7 @@ where
     fn load_credential<'a>(&mut self, label: &'a [u8]) -> Option<Credential<'a>> {
         let filename = self.filename_for_label(label);
 
+        // Workaround for the smol_cbor [u8] serialization bug
         let credential: CredentialCBOR =
             self.state.try_read_file(&mut self.trussed, filename).ok()?;
 
@@ -426,6 +427,7 @@ where
         let filename = self.filename_for_label(credential.label);
 
         // 4. Serialize the credential
+        // Workaround for the smol_cbor [u8] serialization bug
         let credential: CredentialCBOR = credential.into();
 
         // 5. Store it
@@ -888,7 +890,6 @@ where
         // save credential back, with the updated credential
         let filename = self.filename_for_label(credential.label);
         let credential: CredentialCBOR = credential.into();
-        // let serialized: Bytes<SERIALIZED_CREDENTIAL_BUFFER_SIZE> = cbor_serialize_bytes(&credential).unwrap();
         self.state
             .try_write_file(&mut self.trussed, filename, &credential)?;
 

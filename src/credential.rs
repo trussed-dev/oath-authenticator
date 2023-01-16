@@ -2,6 +2,9 @@ use crate::{command, oath};
 use serde::{Deserialize, Serialize};
 use trussed::types::{KeyId, ShortData};
 
+/// A one-shot temporary structure to workaround the smol_cbor [u8] serialization bug
+/// Here instead of the raw buffer the ShortData type is used, thus avoiding buggy UTF-8 text
+/// deserialization. To be removed once the other is fixed.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CredentialCBOR<'l> {
     #[serde(rename = "L")]
