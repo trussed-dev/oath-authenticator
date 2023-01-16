@@ -181,11 +181,6 @@ where
             self.state.runtime.client_authorized = true;
         }
 
-        // debug_now!("client_authorized_before {}, client_newly_authorized {}, client_authorized {}",
-        //     client_authorized_before,
-        //     self.state.runtime.client_newly_authorized,
-        //     self.state.runtime.client_authorized,
-        // );
         result
     }
 
@@ -207,7 +202,6 @@ where
 
         // parse Iso7816Command as PivCommand
         let command: Command = command.try_into()?;
-        // info_now!("\n====\n{:?}\n====\n", &command);
         info_now!("{:?}", &command);
 
         if !self.state.runtime.client_authorized {
@@ -288,10 +282,6 @@ where
 
         // Well. `ykman oath reset` does not check PIN.
         // If you lost your PIN, you wouldn't be able to reset otherwise.
-
-        // if !self.state.runtime.client_authorized {
-        //     return Err(Status::ConditionsOfUseNotSatisfied);
-        // }
 
         debug_now!(":: reset - delete all keys");
         try_syscall!(self.trussed.delete_all(Location::Internal))
@@ -377,7 +367,6 @@ where
 
         let mut file_index = 0;
         while let Some(credential) = maybe_credential {
-            // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // keep track, in case we need continuation
             file_index += 1;
@@ -387,11 +376,6 @@ where
             // TODO problematic when flash memory is full?
             let credential: Credential = credential.borrow().into();
 
-            // append data in form:
-            // 72
-            // len (= 1 + label.len())
-            // kind | algorithm
-            // label
             reply.push(0x72).unwrap();
             reply.push((credential.label.len() + 1) as u8).unwrap();
             reply
@@ -408,15 +392,6 @@ where
             if file_index % 8 == 0 {
                 // TODO: split response
             }
-            // get_data = _encode_extended_apdu(0, self._ins_send_remaining, 0, 0, b"")
-            // else:
-            // raise TypeError("Invalid ApduFormat set")
-
-            // # Read chained response
-            // buf = b""
-            // while sw >> 8 == SW1_HAS_MORE_DATA:
-            // buf += response
-            // response, sw = self.connection.send_and_receive(get_data)
         }
 
         // ran to completion
@@ -519,8 +494,6 @@ where
         };
 
         while let Some(credential) = maybe_credential {
-            // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
-
             // deserialize
             let credential: Credential = credential.borrow().into();
 
@@ -794,9 +767,6 @@ where
         .map_err(|_| Status::NotEnoughMemory)?
         .key;
 
-        // self.state::persistent(trussed, |trussed, state| {
-        //     state.authorization_key = Some(key);
-        // });
         debug_now!("storing password/key");
         self.state.persistent(&mut self.trussed, |_, state| {
             state.authorization_key = Some(key)
@@ -971,19 +941,6 @@ where
     }
 }
 
-// impl core::fmt::Debug for Credential<'_> {
-//     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
-//         fmt.debug_struct("Credential")
-//             .field("label", core::str::from_utf8(self.credential).unwrap_or(&self.credential))
-//             .field("kind", &self.kind)
-//             .field("alg", &self.algorithm)
-//             .field("digits", &self.digits)
-//             .field("secret", &self.secret)
-//             .field("touch", &self.touch_required)
-//             .field("counter", &self.counter)
-//             .finish()
-//     }
-// }
 
 impl<T> iso7816::App for Authenticator<T> {
     fn aid(&self) -> iso7816::Aid {
