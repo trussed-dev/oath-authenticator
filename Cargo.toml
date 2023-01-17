@@ -73,6 +73,3 @@ apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1
 littlefs2 = { git = "https://github.com/Nitrokey/littlefs2", tag = "v0.3.2-nitrokey-1" }
 trussed = { git = "https://github.com/Nitrokey/trussed", tag = "v0.1.0-nitrokey-4" }
 usbd-ctaphid = { git = "https://github.com/trussed-dev/usbd-ctaphid"}
-
-# unreleased
-interchange = { git = "https://github.com/trussed-dev/interchange" }
