@@ -1,8 +1,8 @@
 use core::convert::TryInto;
 
 use iso7816::Status;
-use serde::{Deserialize, Serialize};
-// use iso7816::response::Result;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use crate::encrypted_container;
 use crate::encrypted_container::EncryptedDataContainer;
@@ -29,7 +29,7 @@ pub struct Persistent {
     /// This is the user's password, passed through PBKDF-HMAC-SHA1.
     /// It is used for authorization using challenge HMAC-SHA1'ing.
     pub authorization_key: Option<KeyId>,
-    kek: Option<KeyId>,
+    encryption_key: Option<KeyId>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -59,14 +59,18 @@ impl Persistent {
     pub fn password_set(&self) -> bool {
         self.authorization_key.is_some()
     }
-    pub fn get_kek<T>(&mut self, trussed: &mut T) -> trussed::error::Result<KeyId>
+
+    fn get_or_generate_encryption_key<T>(
+        &mut self,
+        trussed: &mut T,
+    ) -> trussed::error::Result<KeyId>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
-        Ok(match self.kek {
+        Ok(match self.encryption_key {
             None => {
                 let r = try_syscall!(trussed.generate_chacha8poly1305_key(Location::Internal))?.key;
-                self.kek = Some(r);
+                self.encryption_key = Some(r);
                 r
             }
             Some(k) => k,
@@ -87,10 +91,10 @@ impl State {
         T: trussed::Client + trussed::client::Chacha8Poly1305,
         O: Serialize,
     {
-        let kek = self
-            .get_kek(trussed)
+        let encryption_key = self
+            .get_encryption_key_from_state(trussed)
             .map_err(|_| iso7816::Status::UnspecifiedPersistentExecutionError)?;
-        let data = EncryptedDataContainer::from_obj(trussed, obj, None, kek)
+        let data = EncryptedDataContainer::from_obj(trussed, obj, None, encryption_key)
             .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
         let data_serialized: Message = data
             .try_into()
@@ -101,12 +105,14 @@ impl State {
         Ok(())
     }
 
-    pub fn get_kek<T>(&mut self, trussed: &mut T) -> trussed::error::Result<KeyId>
+    fn get_encryption_key_from_state<T>(&mut self, trussed: &mut T) -> trussed::error::Result<KeyId>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
-        let kek = self.persistent(trussed, |trussed, state| state.get_kek(trussed))?;
-        Ok(kek)
+        let encryption_key = self.persistent(trussed, |trussed, state| {
+            state.get_or_generate_encryption_key(trussed)
+        })?;
+        Ok(encryption_key)
     }
 
     pub fn decrypt_content<T, O>(
@@ -116,13 +122,13 @@ impl State {
     ) -> encrypted_container::Result<O>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
-        for<'a> O: Deserialize<'a>,
+        O: DeserializeOwned,
     {
-        let kek = self
-            .get_kek(trussed)
+        let encryption_key = self
+            .get_encryption_key_from_state(trussed)
             .map_err(|_| encrypted_container::Error::FailedDecryption)?;
 
-        EncryptedDataContainer::decrypt_from_bytes(trussed, ser_encrypted, kek)
+        EncryptedDataContainer::decrypt_from_bytes(trussed, ser_encrypted, encryption_key)
     }
 
     pub fn try_read_file<T, O>(
@@ -132,7 +138,7 @@ impl State {
     ) -> trussed::error::Result<O>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
-        O: for<'a> Deserialize<'a>,
+        O: DeserializeOwned,
     {
         let ser_encrypted = try_syscall!(trussed.read_file(Location::Internal, filename))?.data;
 
@@ -168,7 +174,7 @@ impl State {
                     Persistent {
                         salt,
                         authorization_key: None,
-                        kek: None,
+                        encryption_key: None,
                     }
                 });
 
@@ -187,6 +193,7 @@ impl State {
         // 4. Return whatever
         result
     }
+
     pub fn persistent<T, X>(
         &mut self,
         trussed: &mut T,
@@ -213,7 +220,7 @@ impl State {
                     Persistent {
                         salt,
                         authorization_key: None,
-                        kek: None,
+                        encryption_key: None,
                     }
                 });
 

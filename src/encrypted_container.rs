@@ -78,8 +78,8 @@ impl From<Error> for trussed::error::Error {
 ///
 /// Usage example:
 /// ```compile_fail
-/// let kek = get_kek(trussed)?;
-/// let data = EncryptedDataContainer::from_obj(trussed, obj, None, kek)?;
+/// let ek = get_encryption_key(trussed)?;
+/// let data = EncryptedDataContainer::from_obj(trussed, obj, None, ek)?;
 /// let data_serialized: Message = data.try_into()?;
 /// ```
 /// Future work and extensions:
@@ -89,11 +89,11 @@ impl From<Error> for trussed::error::Error {
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct EncryptedDataContainer {
     #[serde(rename = "D")]
-    pub data: trussed::types::Message,
+    data: trussed::types::Message,
     #[serde(rename = "T")]
-    pub tag: trussed::types::ShortData,
+    tag: trussed::types::ShortData,
     #[serde(rename = "N")]
-    pub nonce: trussed::types::ShortData,
+    nonce: trussed::types::ShortData,
 }
 
 impl TryFrom<&[u8]> for EncryptedDataContainer {
@@ -124,7 +124,7 @@ impl EncryptedDataContainer {
     pub fn decrypt_from_bytes<T, O>(
         trussed: &mut T,
         ser_encrypted: Message,
-        key_encryption_key: KeyId,
+        encryption_key: KeyId,
     ) -> Result<O>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
@@ -133,15 +133,15 @@ impl EncryptedDataContainer {
         let deserialized_container: EncryptedDataContainer =
             cbor_deserialize(&ser_encrypted).map_err(|_| Error::DeserializationToContainerError)?;
 
-        deserialized_container.decrypt(trussed, None, key_encryption_key)
+        deserialized_container.decrypt(trussed, None, encryption_key)
     }
 
     /// Create Encrypted Data Container from the given object
     pub fn from_obj<T, O>(
         trussed: &mut T,
         obj: &O,
-        aead: Option<&[u8]>,
-        key_encryption_key: KeyId,
+        associated_data: Option<&[u8]>,
+        encryption_key: KeyId,
     ) -> Result<EncryptedDataContainer>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
@@ -150,15 +150,15 @@ impl EncryptedDataContainer {
         let mut buf = [0u8; SERIALIZED_OBJECT_BUFFER_SIZE];
         let message = cbor_serialize(obj, &mut buf).map_err(|_| Error::ObjectSerializationError)?;
         debug_now!("Plaintext size: {}", message.len());
-        Self::encrypt_message(trussed, message, aead, key_encryption_key)
+        Self::encrypt_message(trussed, message, associated_data, encryption_key)
     }
 
     /// Encrypt given Bytes object, and return an Encrypted Data Container
     pub fn encrypt_message<T>(
         trussed: &mut T,
         message: &[u8],
-        aead: Option<&[u8]>,
-        key_encryption_key: KeyId,
+        associated_data: Option<&[u8]>,
+        encryption_key: KeyId,
     ) -> Result<EncryptedDataContainer>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
@@ -177,9 +177,9 @@ impl EncryptedDataContainer {
 
         // nonce is provided internally via internal per-key counter, hence not passed here
         let encryption_results = try_syscall!(trussed.encrypt_chacha8poly1305(
-            key_encryption_key,
+            encryption_key,
             message,
-            aead.unwrap_or_default(),
+            associated_data.unwrap_or_default(),
             None
         ))
         .map_err(|_| Error::FailedEncryption)?;
@@ -199,15 +199,15 @@ impl EncryptedDataContainer {
     pub fn decrypt<T, O>(
         &self,
         trussed: &mut T,
-        aead: Option<&[u8]>,
-        key_encryption_key: KeyId,
+        associated_data: Option<&[u8]>,
+        encryption_key: KeyId,
     ) -> Result<O>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
         O: for<'a> Deserialize<'a>,
     {
         let message = self
-            .decrypt_to_serialized(trussed, aead, key_encryption_key)
+            .decrypt_to_serialized(trussed, associated_data, encryption_key)
             .map_err(|_| Error::DeserializationToContainerError)?;
         cbor_deserialize(&message).map_err(|_| Error::DeserializationToObjectError)
     }
@@ -216,8 +216,8 @@ impl EncryptedDataContainer {
     pub fn decrypt_to_serialized<T>(
         &self,
         trussed: &mut T,
-        aead: Option<&[u8]>,
-        key_encryption_key: KeyId,
+        associated_data: Option<&[u8]>,
+        encryption_key: KeyId,
     ) -> Result<Message>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
@@ -233,9 +233,9 @@ impl EncryptedDataContainer {
         }
 
         let serialized = try_syscall!(trussed.decrypt_chacha8poly1305(
-            key_encryption_key,
+            encryption_key,
             &self.data,
-            aead.unwrap_or_default(),
+            associated_data.unwrap_or_default(),
             &self.nonce,
             &self.tag
         ))

@@ -285,7 +285,7 @@ where
 
         debug_now!(":: reset - delete all files");
         // make sure all other files are removed as well
-        // NB: This deletes state.bin too, so it removes a possibly set password and kek key.
+        // NB: This deletes state.bin too, so it removes a possibly set password and encryption key.
         try_syscall!(self
             .trussed
             .remove_dir_all(Location::Internal, PathBuf::new()))
@@ -315,24 +315,21 @@ where
 
         let label = &delete.label;
         if let Some(credential) = self.load_credential(label) {
-            if !syscall!(self.trussed.delete(credential.secret)).success {
-                debug_now!("could not delete secret {:?}", credential.secret);
-            } else {
-                debug_now!("deleted secret {:?}", credential.secret);
-            }
+            let _deletion_result_secret = syscall!(self.trussed.delete(credential.secret)).success;
+            debug_now!(
+                "Deleted secret {:?}, result: {:?}",
+                credential.secret,
+                _deletion_result_secret
+            );
 
             let _filename = self.filename_for_label(label);
-            if try_syscall!(self.trussed.remove_file(Location::Internal, _filename)).is_err() {
-                debug_now!(
-                    "could not delete credential with filename {}",
-                    &self.filename_for_label(label)
-                );
-            } else {
-                debug_now!(
-                    "deleted credential with filename {}",
-                    &self.filename_for_label(label)
-                );
-            }
+            let _deletion_result =
+                try_syscall!(self.trussed.remove_file(Location::Internal, _filename));
+            debug_now!(
+                "Delete credential with filename {}, result: {:?}",
+                &self.filename_for_label(label),
+                _deletion_result
+            );
         }
         Ok(Default::default())
     }
