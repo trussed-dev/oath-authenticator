@@ -270,6 +270,11 @@ where
             counter: credential.cred.counter,
         };
 
+        if label != credential.label {
+            debug_now!("Loaded credential label is different than expected. Aborting.");
+            return None;
+        }
+
         Some(credential)
     }
 
