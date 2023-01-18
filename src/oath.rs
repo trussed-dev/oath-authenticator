@@ -2,7 +2,6 @@ use core::convert::TryFrom;
 
 use serde::{Deserialize, Serialize};
 
-
 pub const HMAC_MINIMUM_KEY_SIZE: usize = 14;
 
 #[repr(u8)]
@@ -89,7 +88,7 @@ pub enum Instruction {
     CalculateAll = 0xa4,
     SendRemaining = 0xa5,
     // Place extending commands in 0xBx space
-    VerifyCode = 0xb1
+    VerifyCode = 0xb1,
 }
 
 impl TryFrom<u8> for Instruction {
