@@ -1,3 +1,4 @@
+use heapless_bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use trussed::types::{KeyId, Message};
 use trussed::{cbor_deserialize, cbor_serialize, try_syscall};
@@ -88,13 +89,17 @@ impl From<Error> for trussed::error::Error {
 /// - Investigate postcard structure extensibility, as a means for smaller overhead for serialization
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct EncryptedDataContainer {
+    /// The ciphertext. 1024 bytes maximum. Reusing trussed::types::Message.
     #[serde(rename = "D")]
     data: trussed::types::Message,
     #[serde(rename = "T")]
-    tag: trussed::types::ShortData,
+    tag: ContainerTag,
     #[serde(rename = "N")]
-    nonce: trussed::types::ShortData,
+    nonce: ContainerNonce,
 }
+
+type ContainerTag = Bytes<16>;
+type ContainerNonce = Bytes<12>;
 
 impl TryFrom<&[u8]> for EncryptedDataContainer {
     type Error = Error;
@@ -189,8 +194,8 @@ impl EncryptedDataContainer {
 
         let encrypted_serialized_credential = EncryptedDataContainer {
             data: ciphertext,
-            nonce: encryption_results.nonce,
-            tag: encryption_results.tag,
+            nonce: encryption_results.nonce.try_convert_into().unwrap(), // should always be 12 bytes
+            tag: encryption_results.tag.try_convert_into().unwrap(),  // should always be 16 bytes
         };
         Ok(encrypted_serialized_credential)
     }
