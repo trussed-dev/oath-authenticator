@@ -1,4 +1,3 @@
-use core::borrow::Borrow;
 use core::convert::TryInto;
 use core::time::Duration;
 
@@ -10,7 +9,7 @@ use trussed::{
 };
 
 use crate::command::VerifyCode;
-use crate::credential::{Credential, CredentialCBOR};
+use crate::credential::Credential;
 use crate::oath::Kind;
 use crate::{
     command, ensure, oath,
@@ -253,24 +252,12 @@ where
         Ok(())
     }
 
-    fn load_credential<'a>(&mut self, label: &'a [u8]) -> Option<Credential<'a>> {
+    fn load_credential(&mut self, label: &[u8]) -> Option<Credential> {
         let filename = self.filename_for_label(label);
 
-        // Workaround for the smol_cbor [u8] serialization bug
-        let credential: CredentialCBOR =
-            self.state.try_read_file(&mut self.trussed, filename).ok()?;
+        let credential: Credential = self.state.try_read_file(&mut self.trussed, filename).ok()?;
 
-        let credential = Credential {
-            label,
-            kind: credential.cred.kind,
-            algorithm: credential.cred.algorithm,
-            digits: credential.cred.digits,
-            secret: credential.cred.secret,
-            touch_required: credential.cred.touch_required,
-            counter: credential.cred.counter,
-        };
-
-        if label != credential.label {
+        if label != credential.label.as_slice() {
             debug_now!("Loaded credential label is different than expected. Aborting.");
             return None;
         }
@@ -358,7 +345,7 @@ where
             None
         ))
         .data;
-        let mut maybe_credential: Option<CredentialCBOR> = match maybe_credential_enc {
+        let mut maybe_credential: Option<Credential> = match maybe_credential_enc {
             None => None,
             Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
         };
@@ -370,15 +357,12 @@ where
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
 
             // deserialize
-            // TODO problematic when flash memory is full?
-            let credential: Credential = credential.borrow().into();
-
             reply.push(0x72).unwrap();
             reply.push((credential.label.len() + 1) as u8).unwrap();
             reply
                 .push(oath::combine(credential.kind, credential.algorithm))
                 .unwrap();
-            reply.extend_from_slice(credential.label).unwrap();
+            reply.extend_from_slice(&credential.label).unwrap();
 
             // check if there's more
             maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
@@ -423,16 +407,13 @@ where
         // info!("new key handle: {:?}", key_handle);
 
         // 2. Replace secret in credential with handle
-        let credential = Credential::from(&register.credential, key_handle);
+        let credential = Credential::try_from(&register.credential, key_handle)
+            .map_err(|_| Status::NotEnoughMemory)?;
 
         // 3. Generate a filename for the credential
-        let filename = self.filename_for_label(credential.label);
+        let filename = self.filename_for_label(&credential.label);
 
-        // 4. Serialize the credential
-        // Workaround for the smol_cbor [u8] serialization bug
-        let credential: CredentialCBOR = credential.into();
-
-        // 5. Store it
+        // 4. Serialize the credential (implicitly) and store it
         self.state
             .try_write_file(&mut self.trussed, filename, &credential)?;
         Ok(())
@@ -486,19 +467,16 @@ where
             None
         ))
         .data;
-        let mut maybe_credential: Option<CredentialCBOR> = match maybe_credential_enc {
+        let mut maybe_credential: Option<Credential> = match maybe_credential_enc {
             None => None,
             Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
         };
 
         while let Some(credential) = maybe_credential {
-            // deserialize
-            let credential: Credential = credential.borrow().into();
-
             // add to response
             reply.push(0x71).unwrap();
             reply.push(credential.label.len() as u8).unwrap();
-            reply.extend_from_slice(credential.label).unwrap();
+            reply.extend_from_slice(&credential.label).unwrap();
 
             // calculate the value
             if credential.kind == oath::Kind::Totp {
@@ -555,7 +533,7 @@ where
             )?,
             oath::Kind::Hotp => {
                 if let Some(counter) = credential.counter {
-                    self.calculate_hotp_digest_and_bump_counter(credential, counter)?
+                    self.calculate_hotp_digest_and_bump_counter(&credential, counter)?
                 } else {
                     debug_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
@@ -822,7 +800,7 @@ where
                 .checked_add(offset)
                 .ok_or(Status::UnspecifiedPersistentExecutionError)?;
             let code = self
-                .calculate_hotp_code_for_counter(credential, counter)
+                .calculate_hotp_code_for_counter(&credential, counter)
                 .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
             if code == code_in {
                 found = Some(counter);
@@ -840,7 +818,7 @@ where
             Some(val) => val,
         };
 
-        self.bump_counter_for_cred(credential, found)?;
+        self.bump_counter_for_cred(&credential, found)?;
         self.wink_good();
 
         // Verification passed
@@ -852,7 +830,7 @@ where
 
     fn calculate_hotp_code_for_counter(
         &mut self,
-        credential: Credential,
+        credential: &Credential,
         counter: u32,
     ) -> iso7816::Result<u32> {
         let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter)?;
@@ -867,40 +845,39 @@ where
 
     fn calculate_hotp_digest_and_bump_counter(
         &mut self,
-        mut credential: Credential,
+        credential: &Credential,
         counter: u32,
     ) -> iso7816::Result<[u8; 4]> {
-        self.bump_counter_for_cred(credential, counter)?;
-        credential.counter = Some(
-            counter
-                .checked_add(1)
-                .ok_or(Status::UnspecifiedPersistentExecutionError)?,
-        );
-        let res = self.calculate_hotp_digest_for_counter(credential, counter)?;
+        let credential = self.bump_counter_for_cred(&credential, counter)?;
+        let res = self.calculate_hotp_digest_for_counter(&credential, counter)?;
         Ok(res)
     }
 
-    fn bump_counter_for_cred(&mut self, mut credential: Credential, counter: u32) -> Result {
+    fn bump_counter_for_cred(
+        &mut self,
+        credential: &Credential,
+        counter: u32,
+    ) -> Result<Credential> {
         // Do abort with error on the max value, so these could not be pregenerated,
         // and returned to user after overflow, or the same code used each time
         // load-bump counter
+        let mut credential = credential.clone();
         credential.counter = Some(
             counter
                 .checked_add(1)
                 .ok_or(Status::UnspecifiedPersistentExecutionError)?,
         );
-        // save credential back, with the updated credential
-        let filename = self.filename_for_label(credential.label);
-        let credential: CredentialCBOR = credential.into();
+        // save credential back, with the updated counter
+        let filename = self.filename_for_label(&credential.label);
         self.state
             .try_write_file(&mut self.trussed, filename, &credential)?;
 
-        Ok(())
+        Ok(credential)
     }
 
     fn calculate_hotp_digest_for_counter(
         &mut self,
-        credential: Credential,
+        credential: &Credential,
         counter: u32,
     ) -> Result<[u8; 4]> {
         let counter_long: u64 = counter.into();
