@@ -21,7 +21,9 @@ pub struct State {
     // temporary "state", to be removed again
     // pub hack: Hack,
     // trussed: RefCell<Trussed<S>>,
+    #[cfg(feature = "devel")]
     counter_read_write: u32,
+    #[cfg(feature = "devel")]
     counter_read_only: u32,
 }
 
@@ -195,8 +197,10 @@ impl State {
     {
         let mut state: Persistent = Self::get_persistent_or_default(trussed);
 
-        self.counter_read_write += 1;
-        debug_now!("Getting the state RW {}", self.counter_read_write);
+        #[cfg(feature = "devel")]{
+            self.counter_read_write += 1;
+            debug_now!("Getting the state RW {}", self.counter_read_write);
+        }
         // 2. Let the app read or modify the state
         let x = f(trussed, &mut state);
 
@@ -221,8 +225,10 @@ impl State {
     {
         let state: Persistent = Self::get_persistent_or_default(trussed);
 
-        self.counter_read_only += 1;
-        debug_now!("Getting the state RO {}", self.counter_read_only);
+        #[cfg(feature = "devel")]{
+            self.counter_read_only += 1;
+            debug_now!("Getting the state RO {}", self.counter_read_only);
+        }
         // 2. Let the app read the state
         let x = f(trussed, &state);
         x
