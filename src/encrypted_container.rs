@@ -195,7 +195,7 @@ impl EncryptedDataContainer {
         let encrypted_serialized_credential = EncryptedDataContainer {
             data: ciphertext,
             nonce: encryption_results.nonce.try_convert_into().unwrap(), // should always be 12 bytes
-            tag: encryption_results.tag.try_convert_into().unwrap(),  // should always be 16 bytes
+            tag: encryption_results.tag.try_convert_into().unwrap(), // should always be 16 bytes
         };
         Ok(encrypted_serialized_credential)
     }

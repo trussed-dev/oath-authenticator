@@ -114,16 +114,15 @@ impl State {
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
         // Try to read it
-        let maybe_encryption_key = self.persistent_read_only(trussed, |_, state| {
-            state.encryption_key
-        });
+        let maybe_encryption_key =
+            self.persistent_read_only(trussed, |_, state| state.encryption_key);
 
         // Generate encryption key
         let encryption_key = match maybe_encryption_key {
             Some(e) => e,
             None => self.try_persistent_read_write(trussed, |trussed, state| {
                 state.get_or_generate_encryption_key(trussed)
-            })?
+            })?,
         };
         Ok(encryption_key)
     }
@@ -171,7 +170,8 @@ impl State {
     {
         let mut state: Persistent = Self::get_persistent_or_default(trussed);
 
-        #[cfg(feature = "devel")]{
+        #[cfg(feature = "devel")]
+        {
             self.counter_read_write += 1;
             debug_now!("Getting the state RW {}", self.counter_read_write);
         }
@@ -194,12 +194,13 @@ impl State {
         trussed: &mut T,
         f: impl FnOnce(&mut T, &Persistent) -> X,
     ) -> X
-        where
-            T: trussed::Client + trussed::client::Chacha8Poly1305,
+    where
+        T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
         let state: Persistent = Self::get_persistent_or_default(trussed);
 
-        #[cfg(feature = "devel")]{
+        #[cfg(feature = "devel")]
+        {
             self.counter_read_only += 1;
             debug_now!("Getting the state RO {}", self.counter_read_only);
         }
