@@ -638,13 +638,14 @@ where
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         debug_now!("clearing password/key");
-        if let Some(key) = self.state.persistent_read_write(&mut self.trussed, |_, state| {
+        if let Some(key) = self.state.try_persistent_read_write(&mut self.trussed, |_, state| {
             let existing_key = state.authorization_key;
             state.authorization_key = None;
-            existing_key
-        }) {
-            syscall!(self.trussed.delete(key));
-        }
+            Ok(existing_key)
+        }).map_err(|_| Status::NotEnoughMemory)?
+            {
+                syscall!(self.trussed.delete(key));
+            }
         Ok(())
     }
 
@@ -744,9 +745,10 @@ where
         .key;
 
         debug_now!("storing password/key");
-        self.state.persistent_read_write(&mut self.trussed, |_, state| {
-            state.authorization_key = Some(key)
-        });
+        self.state.try_persistent_read_write(&mut self.trussed, |_, state| {
+            state.authorization_key = Some(key);
+            Ok(())
+        }).map_err(|_| Status::NotEnoughMemory)?;
 
         // pub struct SetPassword<'l> {
         //     pub kind: oath::Kind,

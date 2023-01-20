@@ -121,7 +121,7 @@ impl State {
         // Generate encryption key
         let encryption_key = match maybe_encryption_key {
             Some(e) => e,
-            None => self.persistent_read_write(trussed, |trussed, state| {
+            None => self.try_persistent_read_write(trussed, |trussed, state| {
                 state.get_or_generate_encryption_key(trussed)
             })?
         };
@@ -161,37 +161,11 @@ impl State {
             .map_err(|e| e.into())
     }
 
-    pub fn try_persistent<T>(
+    pub fn try_persistent_read_write<T, X>(
         &mut self,
         trussed: &mut T,
-        f: impl FnOnce(&mut T, &mut Persistent) -> Result<(), Status>,
-    ) -> Result<(), Status>
-    where
-        T: trussed::Client + trussed::client::Chacha8Poly1305,
-    {
-        let mut state: Persistent = Self::get_persistent_or_default(trussed);
-
-        // 2. Let the app read or modify the state
-        let result = f(trussed, &mut state);
-
-        // 3. Always write it back
-        try_syscall!(trussed.write_file(
-            Location::Internal,
-            PathBuf::from(Self::FILENAME),
-            postcard_serialize_bytes(&state).unwrap(),
-            None,
-        ))
-        .map_err(|_| Status::NotEnoughMemory)?;
-
-        // 4. Return whatever
-        result
-    }
-
-    pub fn persistent_read_write<T, X>(
-        &mut self,
-        trussed: &mut T,
-        f: impl FnOnce(&mut T, &mut Persistent) -> X,
-    ) -> X
+        f: impl FnOnce(&mut T, &mut Persistent) -> Result<X, trussed::error::Error>,
+    ) -> Result<X, trussed::error::Error>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
@@ -205,12 +179,12 @@ impl State {
         let x = f(trussed, &mut state);
 
         // 3. Always write it back
-        syscall!(trussed.write_file(
+        try_syscall!(trussed.write_file(
             Location::Internal,
             PathBuf::from(Self::FILENAME),
             postcard_serialize_bytes(&state).unwrap(),
             None,
-        ));
+        ))?;
 
         x
     }
