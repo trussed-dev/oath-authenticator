@@ -727,9 +727,10 @@ where
         }
 
         info_now!("injecting the key");
-        let tmp_key = syscall!(self
+        let tmp_key = try_syscall!(self
             .trussed
             .unsafe_inject_shared_key(key, Location::Volatile,))
+        .map_err(|_| Status::NotEnoughMemory)?
         .key;
 
         let verification = syscall!(self.trussed.sign_hmacsha1(tmp_key, challenge)).signature;

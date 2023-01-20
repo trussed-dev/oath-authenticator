@@ -105,7 +105,10 @@ impl State {
             .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
         debug_now!("Container size: {}", data_serialized.len());
         try_syscall!(trussed.write_file(Location::Internal, filename, data_serialized, None))
-            .map_err(|_| iso7816::Status::NotEnoughMemory)?;
+            .map_err(|_| {
+                debug_now!("Failed to write the file");
+                iso7816::Status::NotEnoughMemory
+            })?;
         Ok(())
     }
 
@@ -219,6 +222,7 @@ impl State {
         try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
             .map(|response| postcard_deserialize(&response.data).unwrap())
             .unwrap_or_else(|_| {
+                // TODO check if this can fail
                 let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
                     .bytes
                     .as_ref()
