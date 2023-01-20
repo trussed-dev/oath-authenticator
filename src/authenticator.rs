@@ -150,7 +150,7 @@ where
     ) -> Result {
         let no_authorization_needed = self
             .state
-            .persistent(&mut self.trussed, |_, state| !state.password_set());
+            .persistent_read_only(&mut self.trussed, |_, state| !state.password_set());
 
         // TODO: abstract out this idea to make it usable for all the PIV security indicators
 
@@ -236,7 +236,7 @@ where
 
         let state = self
             .state
-            .persistent(&mut self.trussed, |_, state| state.clone());
+            .persistent_read_only(&mut self.trussed, |_, state| state.clone());
         let answer_to_select = AnswerToSelect::new(state.salt);
 
         let data: heapless::Vec<u8, 128> = if state.password_set() {
@@ -576,7 +576,7 @@ where
 
         if let Some(key) = self
             .state
-            .persistent(&mut self.trussed, |_, state| state.authorization_key)
+            .persistent_read_only(&mut self.trussed, |_, state| state.authorization_key)
         {
             debug_now!("key set: {:?}", key);
 
@@ -638,7 +638,7 @@ where
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         debug_now!("clearing password/key");
-        if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| {
+        if let Some(key) = self.state.persistent_read_write(&mut self.trussed, |_, state| {
             let existing_key = state.authorization_key;
             state.authorization_key = None;
             existing_key
@@ -744,7 +744,7 @@ where
         .key;
 
         debug_now!("storing password/key");
-        self.state.persistent(&mut self.trussed, |_, state| {
+        self.state.persistent_read_write(&mut self.trussed, |_, state| {
             state.authorization_key = Some(key)
         });
 

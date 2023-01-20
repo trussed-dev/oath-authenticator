@@ -21,6 +21,8 @@ pub struct State {
     // temporary "state", to be removed again
     // pub hack: Hack,
     // trussed: RefCell<Trussed<S>>,
+    counter_read_write: u32,
+    counter_read_only: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -109,9 +111,18 @@ impl State {
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
-        let encryption_key = self.persistent(trussed, |trussed, state| {
-            state.get_or_generate_encryption_key(trussed)
-        })?;
+        // Try to read it
+        let maybe_encryption_key = self.persistent_read_only(trussed, |_, state| {
+            state.encryption_key
+        });
+
+        // Generate encryption key
+        let encryption_key = match maybe_encryption_key {
+            Some(e) => e,
+            None => self.persistent_read_write(trussed, |trussed, state| {
+                state.get_or_generate_encryption_key(trussed)
+            })?
+        };
         Ok(encryption_key)
     }
 
@@ -156,27 +167,7 @@ impl State {
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
-        // 1. If there is serialized, persistent state (i.e., the try_syscall! to `read_file` does
-        //    not fail), then assume it is valid and deserialize it. If the reading fails, assume
-        //    that this is the first run, and set defaults.
-        //
-        // NB: This is an attack vector. If the state can be corrupted, this clears the password.
-        // Consider resetting the device in this situation
-        let mut state: Persistent =
-            try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
-                .map(|response| postcard_deserialize(&response.data).unwrap())
-                .unwrap_or_else(|_| {
-                    let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
-                        .bytes
-                        .as_ref()
-                        .try_into()
-                        .unwrap();
-                    Persistent {
-                        salt,
-                        authorization_key: None,
-                        encryption_key: None,
-                    }
-                });
+        let mut state: Persistent = Self::get_persistent_or_default(trussed);
 
         // 2. Let the app read or modify the state
         let result = f(trussed, &mut state);
@@ -194,7 +185,7 @@ impl State {
         result
     }
 
-    pub fn persistent<T, X>(
+    pub fn persistent_read_write<T, X>(
         &mut self,
         trussed: &mut T,
         f: impl FnOnce(&mut T, &mut Persistent) -> X,
@@ -202,28 +193,10 @@ impl State {
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
-        // 1. If there is serialized, persistent state (i.e., the try_syscall! to `read_file` does
-        //    not fail), then assume it is valid and deserialize it. If the reading fails, assume
-        //    that this is the first run, and set defaults.
-        //
-        // NB: This is an attack vector. If the state can be corrupted, this clears the password.
-        // Consider resetting the device in this situation
-        let mut state: Persistent =
-            try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
-                .map(|response| postcard_deserialize(&response.data).unwrap())
-                .unwrap_or_else(|_| {
-                    let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
-                        .bytes
-                        .as_ref()
-                        .try_into()
-                        .unwrap();
-                    Persistent {
-                        salt,
-                        authorization_key: None,
-                        encryption_key: None,
-                    }
-                });
+        let mut state: Persistent = Self::get_persistent_or_default(trussed);
 
+        self.counter_read_write += 1;
+        debug_now!("Getting the state RW {}", self.counter_read_write);
         // 2. Let the app read or modify the state
         let x = f(trussed, &mut state);
 
@@ -236,6 +209,46 @@ impl State {
         ));
 
         x
+    }
+
+    pub fn persistent_read_only<T, X>(
+        &mut self,
+        trussed: &mut T,
+        f: impl FnOnce(&mut T, &Persistent) -> X,
+    ) -> X
+        where
+            T: trussed::Client + trussed::client::Chacha8Poly1305,
+    {
+        let state: Persistent = Self::get_persistent_or_default(trussed);
+
+        self.counter_read_only += 1;
+        debug_now!("Getting the state RO {}", self.counter_read_only);
+        // 2. Let the app read the state
+        let x = f(trussed, &state);
+        x
+    }
+
+    fn get_persistent_or_default(trussed: &mut impl trussed::Client) -> Persistent {
+        // 1. If there is serialized, persistent state (i.e., the try_syscall! to `read_file` does
+        //    not fail), then assume it is valid and deserialize it. If the reading fails, assume
+        //    that this is the first run, and set defaults.
+        //
+        // NB: This is an attack vector. If the state can be corrupted, this clears the password.
+        // Consider resetting the device in this situation
+        try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
+            .map(|response| postcard_deserialize(&response.data).unwrap())
+            .unwrap_or_else(|_| {
+                let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
+                    .bytes
+                    .as_ref()
+                    .try_into()
+                    .unwrap();
+                Persistent {
+                    salt,
+                    authorization_key: None,
+                    encryption_key: None,
+                }
+            })
     }
 }
 
