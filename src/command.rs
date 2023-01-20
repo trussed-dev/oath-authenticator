@@ -30,6 +30,8 @@ pub enum Command<'l> {
     Validate(Validate<'l>),
     /// Reverse HOTP validation
     VerifyCode(VerifyCode<'l>),
+    /// Send remaining data in the buffer
+    SendRemaining,
 }
 
 /// TODO: change into enum
@@ -491,6 +493,7 @@ impl<'l, const C: usize> TryFrom<&'l iso7816::Command<C>> for Command<'l> {
                 (0x00, oath::Instruction::VerifyCode, 0x00, 0x00) => {
                     Self::VerifyCode(VerifyCode::try_from(data)?)
                 }
+                (0x00, oath::Instruction::SendRemaining, 0x00, 0x00) => Self::SendRemaining,
                 _ => return Err(Status::InstructionNotSupportedOrInvalid),
             })
         }

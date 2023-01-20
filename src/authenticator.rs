@@ -219,6 +219,7 @@ where
             Command::SetPassword(set_password) => self.set_password(set_password),
             Command::ClearPassword => self.clear_password(),
             Command::VerifyCode(verify_code) => self.verify_code(verify_code, reply),
+            Command::SendRemaining => self.send_remaining(reply),
             _ => Err(Status::ConditionsOfUseNotSatisfied),
         }
     }
@@ -328,6 +329,7 @@ where
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
     pub fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result {
+        // TODO check if this one conflicts with send remaining
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -339,18 +341,39 @@ where
         //          79 75 62 69  63 6F
         // 90 00
 
-        let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
-            Location::Internal,
-            Self::credential_directory(),
-            None
-        ))
-        .data;
-        let mut maybe_credential: Option<Credential> = match maybe_credential_enc {
-            None => None,
-            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
+        let mut file_index = if let Some(CommandState::ListCredentials(s_file_index)) =
+            self.state.runtime.previously
+        {
+            s_file_index
+        } else {
+            0
         };
 
-        let mut file_index = 0;
+        let mut maybe_credential = match &self.state.runtime.previously {
+            Some(s) => {
+                info_now!("found continuation state: {:?}", s);
+                let maybe_credential: Option<Credential> =
+                    match syscall!(self.trussed.read_dir_files_next()).data {
+                        None => None,
+                        Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
+                    };
+                maybe_credential
+            }
+            None => {
+                let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
+                    Location::Internal,
+                    Self::credential_directory(),
+                    None
+                ))
+                .data;
+                let maybe_credential: Option<Credential> = match maybe_credential_enc {
+                    None => None,
+                    Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
+                };
+                maybe_credential
+            }
+        };
+
         while let Some(credential) = maybe_credential {
             // keep track, in case we need continuation
             file_index += 1;
@@ -364,21 +387,32 @@ where
                 .unwrap();
             reply.extend_from_slice(&credential.label).unwrap();
 
+            // TODO check output buffer load and react accordingly
+            //  instead of the raw counter - establish maximum label length or introduce additional
+            //  buffer to keep data that had not fit into the reply, to be retrieved later
+            if file_index % 2 == 0 {
+                // split response
+                return Err(Status::MoreAvailable(0xFF));
+            }
+
             // check if there's more
             maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
                 None => None,
                 Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
             };
-
-            if file_index % 8 == 0 {
-                // TODO: split response
-            }
         }
 
         // ran to completion
         // todo: pack this cleanup in a closure?
         self.state.runtime.previously = None;
         Ok(())
+    }
+
+    fn send_remaining<const R: usize>(&mut self, reply: &mut Data<{ R }>) -> Result {
+        if self.state.runtime.previously.is_none() {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
+        self.list_credentials(reply)
     }
 
     pub fn register(&mut self, register: command::Register<'_>) -> Result {
@@ -414,8 +448,21 @@ where
         let filename = self.filename_for_label(&credential.label);
 
         // 4. Serialize the credential (implicitly) and store it
-        self.state
-            .try_write_file(&mut self.trussed, filename, &credential)?;
+        let write_res = self
+            .state
+            .try_write_file(&mut self.trussed, filename, &credential);
+
+        if write_res.is_err() {
+            // TODO reuse delete() call
+            // 1. Try to delete the key from Trussed, ignore errors
+            try_syscall!(self.trussed.delete(credential.secret)).ok();
+            // 2. Try to delete the empty file, ignore errors
+            let filename = self.filename_for_label(&credential.label);
+            try_syscall!(self.trussed.remove_file(Location::Internal, filename)).ok();
+            // 3. Return the original error
+            write_res?
+        }
+
         Ok(())
     }
 
