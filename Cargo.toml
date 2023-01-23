@@ -18,6 +18,7 @@ heapless-bytes = "0.3"
 hex-literal = "0.3"
 interchange = "0.2"
 iso7816 = "0.1"
+postcard = "0.7"
 serde = { version = "1", default-features = false }
 trussed = "0.1"
 
