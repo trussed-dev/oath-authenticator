@@ -327,6 +327,21 @@ where
         Ok(Default::default())
     }
 
+    fn try_to_serialize_credential_for_list<const R: usize>(
+        credential: &Credential,
+        reply: &mut Data<R>,
+    ) -> core::result::Result<(), u8> {
+        reply.push(0x72)?;
+        reply.push((credential.label.len() + 1) as u8)?;
+        reply.push(oath::combine(credential.kind, credential.algorithm))?;
+        reply.extend_from_slice(&credential.label).map_err(|_| 0)?;
+        #[cfg(feature = "devel")]
+        if reply.len() > 3072 {
+            return Err(1);
+        }
+        Ok(())
+    }
+
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
     pub fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result {
         // TODO check if this one conflicts with send remaining
@@ -349,51 +364,54 @@ where
             0
         };
 
-        let mut maybe_credential = match &self.state.runtime.previously {
-            Some(s) => {
-                info_now!("found continuation state: {:?}", s);
-                let maybe_credential: Option<Credential> =
-                    match syscall!(self.trussed.read_dir_files_next()).data {
-                        None => None,
-                        Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
-                    };
-                maybe_credential
-            }
-            None => {
-                let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
-                    Location::Internal,
-                    Self::credential_directory(),
-                    None
-                ))
-                .data;
-                let maybe_credential: Option<Credential> = match maybe_credential_enc {
-                    None => None,
-                    Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
-                };
-                maybe_credential
-            }
+        let mut maybe_credential = {
+            // To avoid creating additional buffer for the unfit data
+            // we will rewind the state and restart from there accordingly
+            let first_file = try_syscall!(self.trussed.read_dir_files_first(
+                Location::Internal,
+                Self::credential_directory(),
+                None
+            ))
+            .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?
+            .data;
+
+            // Rewind if needed, otherwise return first file's content
+            let file = match &self.state.runtime.previously {
+                Some(CommandState::ListCredentials(s)) => {
+                    info_now!("found continuation state: {:?}", s);
+                    for _ in 0..s - 1 {
+                        try_syscall!(self.trussed.read_dir_files_next())
+                            .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?;
+                    }
+                    try_syscall!(self.trussed.read_dir_files_next())
+                        .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?
+                        .data
+                }
+                None => first_file,
+                _ => Err(iso7816::Status::FunctionNotSupported)?, // this one should never be reached
+            };
+
+            let maybe_credential: Option<Credential> = match file {
+                None => None,
+                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
+            };
+            maybe_credential
         };
 
         while let Some(credential) = maybe_credential {
+            // Try to serialize, abort if not succeeded
+            let current_reply_bytes_count = reply.len();
+            let res = Self::try_to_serialize_credential_for_list(&credential, reply);
+            if res.is_err() {
+                // Revert reply vector to the last good size, removing debris from the failed
+                // serialization
+                reply.truncate(current_reply_bytes_count);
+                return Err(Status::MoreAvailable(0xFF));
+            }
+
             // keep track, in case we need continuation
             file_index += 1;
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
-
-            // deserialize
-            reply.push(0x72).unwrap();
-            reply.push((credential.label.len() + 1) as u8).unwrap();
-            reply
-                .push(oath::combine(credential.kind, credential.algorithm))
-                .unwrap();
-            reply.extend_from_slice(&credential.label).unwrap();
-
-            // TODO check output buffer load and react accordingly
-            //  instead of the raw counter - establish maximum label length or introduce additional
-            //  buffer to keep data that had not fit into the reply, to be retrieved later
-            if file_index % 2 == 0 {
-                // split response
-                return Err(Status::MoreAvailable(0xFF));
-            }
 
             // check if there's more
             maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
@@ -409,10 +427,10 @@ where
     }
 
     fn send_remaining<const R: usize>(&mut self, reply: &mut Data<{ R }>) -> Result {
-        if self.state.runtime.previously.is_none() {
-            return Err(Status::ConditionsOfUseNotSatisfied);
+        match self.state.runtime.previously {
+            None => Err(Status::ConditionsOfUseNotSatisfied),
+            Some(CommandState::ListCredentials(_)) => self.list_credentials(reply),
         }
-        self.list_credentials(reply)
     }
 
     pub fn register(&mut self, register: command::Register<'_>) -> Result {
