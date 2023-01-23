@@ -4,7 +4,6 @@ use iso7816::Status;
 // use iso7816::response::Result;
 
 use trussed::{
-    postcard_deserialize, postcard_serialize_bytes,
     syscall, try_syscall,
     types::{KeyId, Location, PathBuf},
 };
@@ -84,7 +83,7 @@ impl State {
         // NB: This is an attack vector. If the state can be corrupted, this clears the password.
         // Consider resetting the device in this situation
         let mut state: Persistent = try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
-            .map(|response| postcard_deserialize(&response.data).unwrap())
+            .map(|response| postcard::from_bytes(&response.data).unwrap())
             .unwrap_or_else(|_| {
                 let salt: [u8; 8] = syscall!(trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
                 Persistent { salt, authorization_key: None }
@@ -97,7 +96,7 @@ impl State {
         syscall!(trussed.write_file(
             Location::Internal,
             PathBuf::from(Self::FILENAME),
-            postcard_serialize_bytes(&state).unwrap(),
+            postcard::to_vec(&state).unwrap().into(),
             None,
         ));
 
@@ -121,7 +120,7 @@ impl State {
         // NB: This is an attack vector. If the state can be corrupted, this clears the password.
         // Consider resetting the device in this situation
         let mut state: Persistent = try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
-            .map(|response| postcard_deserialize(&response.data).unwrap())
+            .map(|response| postcard::from_bytes(&response.data).unwrap())
             .unwrap_or_else(|_| {
                 let salt: [u8; 8] = syscall!(trussed.random_bytes(8)).bytes.as_ref().try_into().unwrap();
                 Persistent { salt, authorization_key: None }
@@ -134,7 +133,7 @@ impl State {
         syscall!(trussed.write_file(
             Location::Internal,
             PathBuf::from(Self::FILENAME),
-            postcard_serialize_bytes(&state).unwrap(),
+            postcard::to_vec(&state).unwrap().into(),
             None,
         ));
         x

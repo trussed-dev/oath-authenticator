@@ -5,7 +5,6 @@ use iso7816::{Data, Status};
 use serde::{Deserialize, Serialize};
 use trussed::{
     client, syscall, try_syscall,
-    postcard_deserialize, postcard_serialize, postcard_serialize_bytes,
     types::{KeyId, Location, PathBuf},
 };
 use crate::{command, Command, oath, state::{CommandState, State}};
@@ -223,8 +222,7 @@ where
             .ok()?
             .data;
 
-        let credential: Credential = postcard_deserialize(serialized_credential.as_ref())
-            .ok()?;
+        let credential: Credential = postcard::from_bytes(serialized_credential.as_ref()).ok()?;
 
         let credential = Credential { label, ..credential };
 
@@ -315,7 +313,7 @@ where
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
 
             // deserialize
-            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
+            let credential: Credential = postcard::from_bytes(&serialized_credential).unwrap();
 
             // append data in form:
             // 72
@@ -377,7 +375,7 @@ where
 
         // 4. Serialize the credential
         let mut buf = [0u8; 256];
-        let serialized = postcard_serialize(&credential, &mut buf).unwrap();
+        let serialized = postcard::to_slice(&credential, &mut buf).unwrap();
         // info_now!("storing serialized credential: {}", hex_str!(&serialized));
 
         // 5. Store it
@@ -440,7 +438,7 @@ where
             // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
 
             // deserialize
-            let credential: Credential = postcard_deserialize(&serialized_credential).unwrap();
+            let credential: Credential = postcard::from_bytes(&serialized_credential).unwrap();
 
             // add to response
             reply.push(0x71).unwrap();
@@ -498,7 +496,7 @@ where
                     syscall!(self.trussed.write_file(
                         Location::Internal,
                         filename,
-                        postcard_serialize_bytes(&credential).unwrap(),
+                        postcard::to_vec(&credential).unwrap().into(),
                         None
                     ));
 
