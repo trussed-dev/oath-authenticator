@@ -30,7 +30,7 @@ pretty_env_logger = "0.4.0"
 
 [features]
 default = ["apdu-dispatch"]
-devel = ["apdu-dispatch", "log-all", "delog/std-log", "devel-counters", "devel-ctaphid-bug"]
+devel = ["apdu-dispatch", "log-all", "delog/std-log", "devel-counters", "devel-ctaphid-bug", "devel-location-internal"]
 
 # Count accesses to the read-only and read-write persistence storage
 devel-counters = []
@@ -43,6 +43,9 @@ ctaphid = ["ctaphid-dispatch", "usbd-ctaphid"]
 
 # Do not run the actual encryption of the credentials.
 no-encrypted-credentials = []
+
+# Set the default files location to the internal memory. Useful for debugging.
+devel-location-internal = []
 
 log-all = []
 log-none = []

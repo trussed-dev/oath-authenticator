@@ -9,7 +9,7 @@ use crate::encrypted_container::EncryptedDataContainer;
 use trussed::types::Message;
 use trussed::{
     postcard_deserialize, postcard_serialize_bytes, syscall, try_syscall,
-    types::{KeyId, Location, PathBuf},
+    types::{KeyId, PathBuf},
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -75,7 +75,9 @@ impl Persistent {
     {
         Ok(match self.encryption_key {
             None => {
-                let r = try_syscall!(trussed.generate_chacha8poly1305_key(Location::Internal))?.key;
+                let r =
+                    try_syscall!(trussed.generate_chacha8poly1305_key(crate::DEFAULT_LOCATION))?
+                        .key;
                 self.encryption_key = Some(r);
                 r
             }
@@ -106,7 +108,7 @@ impl State {
             .try_into()
             .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
         debug_now!("Container size: {}", data_serialized.len());
-        try_syscall!(trussed.write_file(Location::Internal, filename, data_serialized, None))
+        try_syscall!(trussed.write_file(crate::DEFAULT_LOCATION, filename, data_serialized, None))
             .map_err(|_| {
                 debug_now!("Failed to write the file");
                 iso7816::Status::NotEnoughMemory
@@ -157,7 +159,8 @@ impl State {
         T: trussed::Client + trussed::client::Chacha8Poly1305,
         O: DeserializeOwned,
     {
-        let ser_encrypted = try_syscall!(trussed.read_file(Location::Internal, filename))?.data;
+        let ser_encrypted =
+            try_syscall!(trussed.read_file(crate::DEFAULT_LOCATION, filename))?.data;
 
         debug_now!("ser_encrypted {:?}", ser_encrypted);
 
@@ -185,7 +188,7 @@ impl State {
 
         // 3. Always write it back
         try_syscall!(trussed.write_file(
-            Location::Internal,
+            crate::DEFAULT_LOCATION,
             PathBuf::from(Self::FILENAME),
             postcard_serialize_bytes(&state).unwrap(),
             None,
@@ -221,7 +224,7 @@ impl State {
         //
         // NB: This is an attack vector. If the state can be corrupted, this clears the password.
         // Consider resetting the device in this situation
-        try_syscall!(trussed.read_file(Location::Internal, PathBuf::from(Self::FILENAME)))
+        try_syscall!(trussed.read_file(crate::DEFAULT_LOCATION, PathBuf::from(Self::FILENAME)))
             .map(|response| postcard_deserialize(&response.data).unwrap())
             .unwrap_or_else(|_| {
                 // TODO check if this can fail
