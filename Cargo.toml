@@ -30,7 +30,13 @@ pretty_env_logger = "0.4.0"
 
 [features]
 default = ["apdu-dispatch"]
-devel = ["apdu-dispatch", "log-all", "delog/std-log"]
+devel = ["apdu-dispatch", "log-all", "delog/std-log", "devel-counters", "devel-ctaphid-bug"]
+
+# Count accesses to the read-only and read-write persistence storage
+devel-counters = []
+
+# Account ctaphid bug about 3072 buffer size. To be removed once fixed.
+devel-ctaphid-bug = []
 
 # Allow to use application over CTAPHID interface
 ctaphid = ["ctaphid-dispatch", "usbd-ctaphid"]

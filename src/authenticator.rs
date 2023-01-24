@@ -335,8 +335,10 @@ where
         reply.push((credential.label.len() + 1) as u8)?;
         reply.push(oath::combine(credential.kind, credential.algorithm))?;
         reply.extend_from_slice(&credential.label).map_err(|_| 0)?;
-        #[cfg(feature = "devel")]
+        #[cfg(feature = "devel-ctaphid-bug")]
         if reply.len() > 3072 {
+            // Finish early due to the usbd-ctaphid bug, which panics on bigger buffers than this
+            // FIXME Remove once fixed
             return Err(1);
         }
         Ok(())

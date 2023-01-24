@@ -21,9 +21,11 @@ pub struct State {
     // temporary "state", to be removed again
     // pub hack: Hack,
     // trussed: RefCell<Trussed<S>>,
-    #[cfg(feature = "devel")]
+    // Count read-write access to the persistence storage. Development only.
+    #[cfg(feature = "devel-counters")]
     counter_read_write: u32,
-    #[cfg(feature = "devel")]
+    // Count read-only access to the persistence storage. Development only.
+    #[cfg(feature = "devel-counters")]
     counter_read_only: u32,
 }
 
@@ -173,7 +175,7 @@ impl State {
     {
         let mut state: Persistent = Self::get_persistent_or_default(trussed);
 
-        #[cfg(feature = "devel")]
+        #[cfg(feature = "devel-counters")]
         {
             self.counter_read_write += 1;
             debug_now!("Getting the state RW {}", self.counter_read_write);
@@ -202,7 +204,7 @@ impl State {
     {
         let state: Persistent = Self::get_persistent_or_default(trussed);
 
-        #[cfg(feature = "devel")]
+        #[cfg(feature = "devel-counters")]
         {
             self.counter_read_only += 1;
             debug_now!("Getting the state RO {}", self.counter_read_only);
