@@ -8,7 +8,7 @@ use crate::encrypted_container;
 use crate::encrypted_container::EncryptedDataContainer;
 use trussed::types::Message;
 use trussed::{
-    postcard_deserialize, postcard_serialize_bytes, syscall, try_syscall,
+    cbor_deserialize, cbor_serialize_bytes, syscall, try_syscall,
     types::{KeyId, PathBuf},
 };
 
@@ -190,7 +190,7 @@ impl State {
         try_syscall!(trussed.write_file(
             crate::DEFAULT_LOCATION,
             PathBuf::from(Self::FILENAME),
-            postcard_serialize_bytes(&state).unwrap(),
+            cbor_serialize_bytes(&state).unwrap(),
             None,
         ))?;
 
@@ -225,7 +225,7 @@ impl State {
         // NB: This is an attack vector. If the state can be corrupted, this clears the password.
         // Consider resetting the device in this situation
         try_syscall!(trussed.read_file(crate::DEFAULT_LOCATION, PathBuf::from(Self::FILENAME)))
-            .map(|response| postcard_deserialize(&response.data).unwrap())
+            .map(|response| cbor_deserialize(&response.data).unwrap())
             .unwrap_or_else(|_| {
                 // TODO check if this can fail
                 let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
