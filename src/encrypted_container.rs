@@ -1,6 +1,6 @@
 use heapless_bytes::Bytes;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use trussed::types::{KeyId, Message};
 use trussed::{cbor_deserialize, cbor_serialize, try_syscall};
 

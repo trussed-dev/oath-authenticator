@@ -324,7 +324,7 @@ where
                 _deletion_result
             );
         }
-        Ok(Default::default())
+        Ok(())
     }
 
     fn try_to_serialize_credential_for_list<const R: usize>(
@@ -390,7 +390,6 @@ where
                         .data
                 }
                 None => first_file,
-                _ => Err(iso7816::Status::FunctionNotSupported)?, // this one should never be reached
             };
 
             let maybe_credential: Option<Credential> = match file {
@@ -909,7 +908,7 @@ where
         counter: u32,
     ) -> iso7816::Result<u32> {
         let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter)?;
-        let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
+        let truncated_code = u32::from_be_bytes(truncated_digest);
         let code = (truncated_code & 0x7FFFFFFF)
             % 10u32
                 .checked_pow(credential.digits as _)
@@ -923,7 +922,7 @@ where
         credential: &Credential,
         counter: u32,
     ) -> iso7816::Result<[u8; 4]> {
-        let credential = self.bump_counter_for_cred(&credential, counter)?;
+        let credential = self.bump_counter_for_cred(credential, counter)?;
         let res = self.calculate_hotp_digest_for_counter(&credential, counter)?;
         Ok(res)
     }

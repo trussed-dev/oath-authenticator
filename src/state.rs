@@ -213,8 +213,7 @@ impl State {
             debug_now!("Getting the state RO {}", self.counter_read_only);
         }
         // 2. Let the app read the state
-        let x = f(trussed, &state);
-        x
+        f(trussed, &state)
     }
 
     fn get_persistent_or_default(trussed: &mut impl trussed::Client) -> Persistent {
