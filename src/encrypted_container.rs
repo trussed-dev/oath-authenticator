@@ -1,13 +1,8 @@
 use heapless_bytes::Bytes;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use trussed::types::{KeyId, Message};
 use trussed::{cbor_deserialize, cbor_serialize, try_syscall};
-
-/// The buffer size for the serialization operation of a single encrypted+serialized credential
-/// The minimum size should be about 256 (the current maximum packet length)
-///     + CBOR overhead (field names and map encoding) + encryption overhead (12B nonce + 16B tag)
-/// The extra bytes could be used in the future, when operating on the password-extended credentials.
-const SERIALIZED_OBJECT_BUFFER_SIZE: usize = 1024;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Error {
@@ -70,6 +65,7 @@ impl From<Error> for trussed::error::Error {
 /// This type has implemented bidirectional serialization to trussed Message object.
 ///
 /// Showing the processing paths graphically:
+///
 /// T -> \[u8\]: object -> CBOR serialization -> EncryptedDataContainer encryption  -> CBOR serialization -> serialized EncryptedDataContainer
 ///
 /// \[u8\] -> T: serialized EncryptedDataContainer -> CBOR deserialization -> EncryptedDataContainer decryption -> CBOR deserialization -> object
@@ -77,15 +73,26 @@ impl From<Error> for trussed::error::Error {
 /// Note: to decrease the CBOR overhead it might be useful to rename the serialized object fields for
 /// the serialization purposes. Use the `#[serde(rename = "A")]` attribute.
 ///
+/// The minimum buffer size for the serialization operation of a single encrypted+serialized credential
+/// should be about 256 bytes (the current maximum packet length) + CBOR overhead (field names and map encoding) + encryption overhead (12 bytes nonce + 16 bytes tag).
+/// The extra bytes could be used in the future, when operating on the password-extended credentials.
+///
 /// Usage example:
-/// ```compile_fail
-/// let ek = get_encryption_key(trussed)?;
-/// let data = EncryptedDataContainer::from_obj(trussed, obj, None, ek)?;
-/// let data_serialized: Message = data.try_into()?;
+/// ```
+/// # use trussed::Client;
+/// # use serde::Serialize;
+/// # use trussed::client::Chacha8Poly1305;
+/// # use trussed::types::{KeyId, Message};
+/// # use oath_authenticator::encrypted_container::EncryptedDataContainer;
+/// fn encrypt_unit<O: Serialize, T: Client + Chacha8Poly1305>(trussed: &mut T, obj: &O, ek: KeyId) -> Message {
+///    let data = EncryptedDataContainer::from_obj(trussed, obj, None, ek).unwrap();
+///    let data_serialized: Message = data.try_into().unwrap();
+///    data_serialized
+/// }
 /// ```
 /// Future work and extensions:
 /// - Generalize over serialization method
-/// - Generalize buffer size
+/// - Generalize buffer size (currently buffer is based on the Message type)
 /// - Investigate postcard structure extensibility, as a means for smaller overhead for serialization
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct EncryptedDataContainer {
@@ -106,9 +113,7 @@ impl TryFrom<&[u8]> for EncryptedDataContainer {
 
     /// Create an instance from this serialized Encrypted Data Container
     fn try_from(value: &[u8]) -> Result<Self> {
-        let credential =
-            cbor_deserialize(value).map_err(|_| Error::DeserializationToContainerError)?;
-        Ok(credential)
+        cbor_deserialize(value).map_err(|_| Error::DeserializationToContainerError)
     }
 }
 
@@ -117,10 +122,11 @@ impl TryFrom<EncryptedDataContainer> for Message {
 
     /// Try to serialize EncryptedDataContainer to Bytes
     fn try_from(value: EncryptedDataContainer) -> Result<Self> {
-        let mut buf = [0u8; SERIALIZED_OBJECT_BUFFER_SIZE];
-        let r = cbor_serialize(&value, &mut buf).map_err(|_| Error::ObjectSerializationError)?;
-        let bytes = Message::from_slice(r).map_err(|_| Error::SerializationBufferTooSmall)?;
-        Ok(bytes)
+        Message::try_from(|buf| {
+            cbor_serialize(&value, buf)
+                .map(|s| s.len())
+                .map_err(|_| Error::ObjectSerializationError)
+        })
     }
 }
 
@@ -133,7 +139,7 @@ impl EncryptedDataContainer {
     ) -> Result<O>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
-        for<'a> O: Deserialize<'a>,
+        O: DeserializeOwned,
     {
         let deserialized_container: EncryptedDataContainer =
             cbor_deserialize(&ser_encrypted).map_err(|_| Error::DeserializationToContainerError)?;
@@ -152,10 +158,14 @@ impl EncryptedDataContainer {
         T: trussed::Client + trussed::client::Chacha8Poly1305,
         O: Serialize,
     {
-        let mut buf = [0u8; SERIALIZED_OBJECT_BUFFER_SIZE];
-        let message = cbor_serialize(obj, &mut buf).map_err(|_| Error::ObjectSerializationError)?;
+        let message = Message::try_from(|buf| {
+            cbor_serialize(&obj, buf)
+                .map(|s| s.len())
+                .map_err(|_| Error::ObjectSerializationError)
+        })
+        .map_err(|_| Error::ObjectSerializationError)?;
         debug_now!("Plaintext size: {}", message.len());
-        Self::encrypt_message(trussed, message, associated_data, encryption_key)
+        Self::encrypt_message(trussed, &message, associated_data, encryption_key)
     }
 
     /// Encrypt given Bytes object, and return an Encrypted Data Container
@@ -189,11 +199,8 @@ impl EncryptedDataContainer {
         ))
         .map_err(|_| Error::FailedEncryption)?;
 
-        let ciphertext = Message::from_slice(&encryption_results.ciphertext)
-            .map_err(|_| Error::FailedContainerSerialization)?;
-
         let encrypted_serialized_credential = EncryptedDataContainer {
-            data: ciphertext,
+            data: encryption_results.ciphertext,
             nonce: encryption_results.nonce.try_convert_into().unwrap(), // should always be 12 bytes
             tag: encryption_results.tag.try_convert_into().unwrap(), // should always be 16 bytes
         };
@@ -209,7 +216,7 @@ impl EncryptedDataContainer {
     ) -> Result<O>
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
-        O: for<'a> Deserialize<'a>,
+        O: DeserializeOwned,
     {
         let message = self
             .decrypt_to_serialized(trussed, associated_data, encryption_key)
