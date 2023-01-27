@@ -12,14 +12,14 @@ pub mod authenticator;
 
 pub use authenticator::Authenticator;
 use trussed::types::Location;
-pub mod calculate;
-pub mod command;
+mod calculate;
+mod command;
 pub use command::Command;
-pub mod credential;
-pub mod ctaphid;
-pub mod encrypted_container;
-pub mod oath;
-pub mod state;
+mod credential;
+mod ctaphid;
+mod encrypted_container;
+mod oath;
+mod state;
 
 // https://git.io/JfWuD
 pub const YUBICO_RID: [u8; 5] = hex!("A000000 527");

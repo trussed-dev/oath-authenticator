@@ -213,6 +213,7 @@ impl State {
             debug_now!("Getting the state RO {}", self.counter_read_only);
         }
         // 2. Let the app read the state
+        
         f(trussed, &state)
     }
 

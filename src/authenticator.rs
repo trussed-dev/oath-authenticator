@@ -26,10 +26,10 @@ pub struct Authenticator<T> {
 use crate::Result;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct OathVersion {
-    pub major: u8,
-    pub minor: u8,
-    pub patch: u8,
+struct OathVersion {
+    major: u8,
+    minor: u8,
+    patch: u8,
 }
 
 impl Default for OathVersion {
@@ -62,7 +62,7 @@ impl flexiber::Encodable for OathVersion {
 
 // 61 0F 79 03 01 00 00 71 08 01 02 03 04 01 02 03 04 90 00
 #[derive(Clone, Copy, Encodable, Eq, PartialEq)]
-pub struct AnswerToSelect {
+struct AnswerToSelect {
     #[tlv(simple = "0x79")] // Tag::Version
     version: OathVersion,
     #[tlv(simple = "0x71")] // Tag::Name
@@ -78,7 +78,7 @@ pub struct AnswerToSelect {
 }
 
 #[derive(Clone, Copy, Encodable, Eq, PartialEq)]
-pub struct ChallengingAnswerToSelect {
+struct ChallengingAnswerToSelect {
     #[tlv(simple = "0x79")] // Tag::Version
     version: OathVersion,
     #[tlv(simple = "0x71")] // Tag::Name
@@ -101,7 +101,7 @@ pub struct ChallengingAnswerToSelect {
 impl AnswerToSelect {
     /// The salt is stable and used in modified form as "device ID" in ykman.
     /// It gets rotated on device reset.
-    pub fn new(salt: [u8; 8]) -> Self {
+    fn new(salt: [u8; 8]) -> Self {
         Self {
             version: Default::default(),
             salt,
@@ -112,7 +112,7 @@ impl AnswerToSelect {
     /// This challenge is only added when a password is set on the device.
     ///
     /// It is rotated each time SELECT is called.
-    pub fn with_challenge(self, challenge: [u8; 8]) -> ChallengingAnswerToSelect {
+    fn with_challenge(self, challenge: [u8; 8]) -> ChallengingAnswerToSelect {
         ChallengingAnswerToSelect {
             version: self.version,
             salt: self.salt,
@@ -224,7 +224,7 @@ where
         }
     }
 
-    pub fn select<const R: usize>(
+    fn select<const R: usize>(
         &mut self,
         _select: command::Select<'_>,
         reply: &mut Data<R>,
@@ -266,7 +266,7 @@ where
         Some(credential)
     }
 
-    pub fn reset(&mut self) -> Result {
+    fn reset(&mut self) -> Result {
         self.user_present()?;
 
         // Well. `ykman oath reset` does not check PIN.
@@ -290,7 +290,7 @@ where
         Ok(())
     }
 
-    pub fn delete(&mut self, delete: command::Delete<'_>) -> Result {
+    fn delete(&mut self, delete: command::Delete<'_>) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -345,7 +345,7 @@ where
     }
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
-    pub fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result {
+    fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result {
         // TODO check if this one conflicts with send remaining
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -434,7 +434,7 @@ where
         }
     }
 
-    pub fn register(&mut self, register: command::Register<'_>) -> Result {
+    fn register(&mut self, register: command::Register<'_>) -> Result {
         self.user_present()?;
 
         if !self.state.runtime.client_authorized {
@@ -518,7 +518,7 @@ where
     //       06  <- digits
     //       5A D0 A7 CA <- dynamically truncated HMAC
     // 90 00
-    pub fn calculate_all<const R: usize>(
+    fn calculate_all<const R: usize>(
         &mut self,
         calculate_all: command::CalculateAll<'_>,
         reply: &mut Data<R>,
@@ -572,7 +572,7 @@ where
         Ok(())
     }
 
-    pub fn calculate<const R: usize>(
+    fn calculate<const R: usize>(
         &mut self,
         calculate: command::Calculate<'_>,
         reply: &mut Data<R>,
@@ -630,7 +630,7 @@ where
         Ok(())
     }
 
-    pub fn validate<const R: usize>(
+    fn validate<const R: usize>(
         &mut self,
         validate: command::Validate<'_>,
         reply: &mut Data<R>,
@@ -693,11 +693,11 @@ where
         //     90 00
         //
 
-        // pub response: &'l [u8; 20],
-        // pub challenge: &'l [u8; 8],
+        //  response: &'l [u8; 20],
+        //  challenge: &'l [u8; 8],
     }
 
-    pub fn clear_password(&mut self) -> Result {
+    fn clear_password(&mut self) -> Result {
         self.user_present()?;
 
         if !self.state.runtime.client_authorized {
@@ -718,7 +718,7 @@ where
         Ok(())
     }
 
-    pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
+    fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
         self.user_present()?;
 
         if !self.state.runtime.client_authorized {
@@ -822,12 +822,12 @@ where
             })
             .map_err(|_| Status::NotEnoughMemory)?;
 
-        // pub struct SetPassword<'l> {
-        //     pub kind: oath::Kind,
-        //     pub algorithm: oath::Algorithm,
-        //     pub key: &'l [u8],
-        //     pub challenge: &'l [u8],
-        //     pub response: &'l [u8],
+        //  struct SetPassword<'l> {
+        //      kind: oath::Kind,
+        //      algorithm: oath::Algorithm,
+        //      key: &'l [u8],
+        //      challenge: &'l [u8],
+        //      response: &'l [u8],
         // }
         Ok(())
     }
