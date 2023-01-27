@@ -32,9 +32,9 @@ pub const UP_TIMEOUT_MILLISECONDS: u32 = 15 * 1000;
 pub const FAILURE_FORCED_DELAY_MILLISECONDS: u32 = 1000;
 
 #[cfg(feature = "devel-location-internal")]
-pub const DEFAULT_LOCATION: Location = Location::Internal;
+pub const LOCATION: Location = Location::Internal;
 #[cfg(not(feature = "devel-location-internal"))]
-pub const DEFAULT_LOCATION: Location = Location::External;
+pub const LOCATION: Location = Location::External;
 
 // class AID(bytes, Enum):
 //     OTP = b'\xa0\x00\x00\x05\x27 \x20\x01'

@@ -273,16 +273,14 @@ where
         // If you lost your PIN, you wouldn't be able to reset otherwise.
 
         debug_now!(":: reset - delete all keys");
-        try_syscall!(self.trussed.delete_all(crate::DEFAULT_LOCATION))
+        try_syscall!(self.trussed.delete_all(crate::LOCATION))
             .map_err(|_| Status::NotEnoughMemory)?;
 
         debug_now!(":: reset - delete all files");
         // make sure all other files are removed as well
         // NB: This deletes state.bin too, so it removes a possibly set password and encryption key.
-        try_syscall!(self
-            .trussed
-            .remove_dir_all(crate::DEFAULT_LOCATION, PathBuf::new()))
-        .map_err(|_| Status::NotEnoughMemory)?;
+        try_syscall!(self.trussed.remove_dir_all(crate::LOCATION, PathBuf::new()))
+            .map_err(|_| Status::NotEnoughMemory)?;
 
         self.state.runtime.reset();
 
@@ -317,7 +315,7 @@ where
 
             let _filename = self.filename_for_label(label);
             let _deletion_result =
-                try_syscall!(self.trussed.remove_file(crate::DEFAULT_LOCATION, _filename));
+                try_syscall!(self.trussed.remove_file(crate::LOCATION, _filename));
             debug_now!(
                 "Delete credential with filename {}, result: {:?}",
                 &self.filename_for_label(label),
@@ -370,7 +368,7 @@ where
             // To avoid creating additional buffer for the unfit data
             // we will rewind the state and restart from there accordingly
             let first_file = try_syscall!(self.trussed.read_dir_files_first(
-                crate::DEFAULT_LOCATION,
+                crate::LOCATION,
                 Self::credential_directory(),
                 None
             ))
@@ -454,7 +452,7 @@ where
         let raw_key = register.credential.secret;
         let key_handle = try_syscall!(self
             .trussed
-            .unsafe_inject_shared_key(raw_key, crate::DEFAULT_LOCATION))
+            .unsafe_inject_shared_key(raw_key, crate::LOCATION))
         .map_err(|_| Status::NotEnoughMemory)?
         .key;
         // info!("new key handle: {:?}", key_handle);
@@ -477,7 +475,7 @@ where
             try_syscall!(self.trussed.delete(credential.secret)).ok();
             // 2. Try to delete the empty file, ignore errors
             let filename = self.filename_for_label(&credential.label);
-            try_syscall!(self.trussed.remove_file(crate::DEFAULT_LOCATION, filename)).ok();
+            try_syscall!(self.trussed.remove_file(crate::LOCATION, filename)).ok();
             // 3. Return the original error
             write_res?
         }
@@ -528,7 +526,7 @@ where
         }
 
         let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
-            crate::DEFAULT_LOCATION,
+            crate::LOCATION,
             Self::credential_directory(),
             None
         ))
@@ -808,11 +806,9 @@ where
         }
 
         // all-right, we have a new password to set
-        let key = try_syscall!(self
-            .trussed
-            .unsafe_inject_shared_key(key, crate::DEFAULT_LOCATION,))
-        .map_err(|_| Status::NotEnoughMemory)?
-        .key;
+        let key = try_syscall!(self.trussed.unsafe_inject_shared_key(key, crate::LOCATION,))
+            .map_err(|_| Status::NotEnoughMemory)?
+            .key;
 
         debug_now!("storing password/key");
         self.state
