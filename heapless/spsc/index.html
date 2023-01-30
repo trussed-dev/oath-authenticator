@@ -1,66 +1,64 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Fixed capacity Single Producer Single Consumer (SPSC) queue"><meta name="keywords" content="rust, rustlang, rust-lang, spsc"><title>heapless::spsc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script>
-    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../heapless/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.png" alt="logo"></div>
-        </a><h2 class="location">Module spsc</h2><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li></ul></div><div id="sidebar-vars" data-name="spsc" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../heapless/index.html"><img class="rust-logo" src="../../rust-logo.png" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../index.html">heapless</a>::<wbr><a class="mod" href="#">spsc</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../src/heapless/spsc.rs.html#1-907" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Fixed capacity Single Producer Single Consumer (SPSC) queue</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Fixed capacity Single Producer Single Consumer (SPSC) queue"><meta name="keywords" content="rust, rustlang, rust-lang, spsc"><title>heapless::spsc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../heapless/index.html"><div class="logo-container"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></div></a><h2></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../heapless/index.html"><div class="logo-container"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></div></a><h2 class="location"><a href="#">Module spsc</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn">Module <a href="../index.html">heapless</a>::<wbr><a class="mod" href="#">spsc</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../../src/heapless/spsc.rs.html#1-907">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Fixed capacity Single Producer Single Consumer (SPSC) queue</p>
 <p>Implementation based on <a href="https://www.codeproject.com/Articles/43510/Lock-Free-Single-Producer-Single-Consumer-Circular">https://www.codeproject.com/Articles/43510/Lock-Free-Single-Producer-Single-Consumer-Circular</a></p>
 <p>NOTE: This module is not available on targets that do <em>not</em> support atomic loads and are not
-supported by [<code>atomic_polyfill</code>]. (e.g., MSP430).</p>
-<h2 id="examples" class="section-header"><a href="#examples">Examples</a></h2>
+supported by <a href="https://crates.io/crates/atomic-polyfill"><code>atomic_polyfill</code></a>. (e.g., MSP430).</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
 <ul>
 <li><code>Queue</code> can be used as a plain queue</li>
 </ul>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">heapless::spsc::Queue</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>heapless::spsc::Queue;
 
-<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rb</span>: <span class="ident">Queue</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="number">4</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Queue::new</span>();
+<span class="kw">let </span><span class="kw-2">mut </span>rb: Queue&lt;u8, <span class="number">4</span>&gt; = Queue::new();
 
-<span class="macro">assert!</span>(<span class="ident">rb</span>.<span class="ident">enqueue</span>(<span class="number">0</span>).<span class="ident">is_ok</span>());
-<span class="macro">assert!</span>(<span class="ident">rb</span>.<span class="ident">enqueue</span>(<span class="number">1</span>).<span class="ident">is_ok</span>());
-<span class="macro">assert!</span>(<span class="ident">rb</span>.<span class="ident">enqueue</span>(<span class="number">2</span>).<span class="ident">is_ok</span>());
-<span class="macro">assert!</span>(<span class="ident">rb</span>.<span class="ident">enqueue</span>(<span class="number">3</span>).<span class="ident">is_err</span>()); <span class="comment">// full</span>
+<span class="macro">assert!</span>(rb.enqueue(<span class="number">0</span>).is_ok());
+<span class="macro">assert!</span>(rb.enqueue(<span class="number">1</span>).is_ok());
+<span class="macro">assert!</span>(rb.enqueue(<span class="number">2</span>).is_ok());
+<span class="macro">assert!</span>(rb.enqueue(<span class="number">3</span>).is_err()); <span class="comment">// full
 
-<span class="macro">assert_eq!</span>(<span class="ident">rb</span>.<span class="ident">dequeue</span>(), <span class="prelude-val">Some</span>(<span class="number">0</span>));</code></pre></div>
+</span><span class="macro">assert_eq!</span>(rb.dequeue(), <span class="prelude-val">Some</span>(<span class="number">0</span>));</code></pre></div>
 <ul>
 <li><code>Queue</code> can be <code>split</code> and then be used in Single Producer Single Consumer mode</li>
 </ul>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">heapless::spsc::Queue</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>heapless::spsc::Queue;
 
-<span class="comment">// Notice, type signature needs to be explicit for now.</span>
-<span class="comment">// (min_const_eval, does not allow for default type assignments)</span>
-<span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">Q</span>: <span class="ident">Queue</span><span class="op">&lt;</span><span class="ident">Event</span>, <span class="number">4</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Queue::new</span>();
+<span class="comment">// Notice, type signature needs to be explicit for now.
+// (min_const_eval, does not allow for default type assignments)
+</span><span class="kw">static </span><span class="kw-2">mut </span>Q: Queue&lt;Event, <span class="number">4</span>&gt; = Queue::new();
 
-<span class="kw">enum</span> <span class="ident">Event</span> { <span class="ident">A</span>, <span class="ident">B</span> }
+<span class="kw">enum </span>Event { A, B }
 
-<span class="kw">fn</span> <span class="ident">main</span>() {
-    <span class="comment">// NOTE(unsafe) beware of aliasing the `consumer` end point</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">consumer</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Q</span>.<span class="ident">split</span>().<span class="number">1</span> };
+<span class="kw">fn </span>main() {
+    <span class="comment">// NOTE(unsafe) beware of aliasing the `consumer` end point
+    </span><span class="kw">let </span><span class="kw-2">mut </span>consumer = <span class="kw">unsafe </span>{ Q.split().<span class="number">1 </span>};
 
-    <span class="kw">loop</span> {
-        <span class="comment">// `dequeue` is a lockless operation</span>
-        <span class="kw">match</span> <span class="ident">consumer</span>.<span class="ident">dequeue</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">Event::A</span>) =&gt; { <span class="comment">/* .. */</span> },
-            <span class="prelude-val">Some</span>(<span class="ident">Event::B</span>) =&gt; { <span class="comment">/* .. */</span> },
-            <span class="prelude-val">None</span> =&gt; { <span class="comment">/* sleep */</span> },
+    <span class="kw">loop </span>{
+        <span class="comment">// `dequeue` is a lockless operation
+        </span><span class="kw">match </span>consumer.dequeue() {
+            <span class="prelude-val">Some</span>(Event::A) =&gt; { <span class="comment">/* .. */ </span>},
+            <span class="prelude-val">Some</span>(Event::B) =&gt; { <span class="comment">/* .. */ </span>},
+            <span class="prelude-val">None </span>=&gt; { <span class="comment">/* sleep */ </span>},
         }
     }
 }
 
-<span class="comment">// this is a different execution context that can preempt `main`</span>
-<span class="kw">fn</span> <span class="ident">interrupt_handler</span>() {
-    <span class="comment">// NOTE(unsafe) beware of aliasing the `producer` end point</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">producer</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Q</span>.<span class="ident">split</span>().<span class="number">0</span> };
+<span class="comment">// this is a different execution context that can preempt `main`
+</span><span class="kw">fn </span>interrupt_handler() {
+    <span class="comment">// NOTE(unsafe) beware of aliasing the `producer` end point
+    </span><span class="kw">let </span><span class="kw-2">mut </span>producer = <span class="kw">unsafe </span>{ Q.split().<span class="number">0 </span>};
 
-    <span class="comment">// ..</span>
+    <span class="comment">// ..
 
-    <span class="kw">if</span> <span class="ident">condition</span> {
-        <span class="ident">producer</span>.<span class="ident">enqueue</span>(<span class="ident">Event::A</span>).<span class="ident">ok</span>().<span class="ident">unwrap</span>();
-    } <span class="kw">else</span> {
-        <span class="ident">producer</span>.<span class="ident">enqueue</span>(<span class="ident">Event::B</span>).<span class="ident">ok</span>().<span class="ident">unwrap</span>();
+    </span><span class="kw">if </span>condition {
+        producer.enqueue(Event::A).ok().unwrap();
+    } <span class="kw">else </span>{
+        producer.enqueue(Event::B).ok().unwrap();
     }
 
-    <span class="comment">// ..</span>
-}</code></pre></div>
-<h2 id="benchmarks" class="section-header"><a href="#benchmarks">Benchmarks</a></h2>
+    <span class="comment">// ..
+</span>}</code></pre></div>
+<h2 id="benchmarks"><a href="#benchmarks">Benchmarks</a></h2>
 <p>Measured on a ARM Cortex-M3 core running at 8 MHz and with zero Flash wait cycles</p>
 <div><table><thead><tr><th><code>-C opt-level</code></th><th><code>3</code></th></tr></thead><tbody>
 <tr><td><code>Consumer&lt;u8&gt;::dequeue</code></td><td>15</td></tr>
@@ -77,13 +75,6 @@ supported by [<code>atomic_polyfill</code>]. (e.g., MSP430).</p>
 <li>The numbers reported correspond to the successful path (i.e. <code>Some</code> is returned by <code>dequeue</code>
 and <code>Ok</code> is returned by <code>enqueue</code>).</li>
 </ul>
-</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2>
-<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Consumer.html" title="heapless::spsc::Consumer struct">Consumer</a></div><div class="item-right docblock-short"><p>A queue “consumer”; it can dequeue items from the queue
-NOTE the consumer semantically owns the <code>head</code> pointer of the queue</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Iter.html" title="heapless::spsc::Iter struct">Iter</a></div><div class="item-right docblock-short"><p>An iterator over the items of a queue</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.IterMut.html" title="heapless::spsc::IterMut struct">IterMut</a></div><div class="item-right docblock-short"><p>A mutable iterator over the items of a queue</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Producer.html" title="heapless::spsc::Producer struct">Producer</a></div><div class="item-right docblock-short"><p>A queue “producer”; it can enqueue items into the queue
-NOTE the producer semantically owns the <code>tail</code> pointer of the queue</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Queue.html" title="heapless::spsc::Queue struct">Queue</a></div><div class="item-right docblock-short"><p>A statically allocated single producer single consumer queue with a capacity of <code>N - 1</code> elements</p>
-</div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="heapless" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
-</body></html>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Consumer.html" title="heapless::spsc::Consumer struct">Consumer</a></div><div class="item-right docblock-short">A queue “consumer”; it can dequeue items from the queue
+NOTE the consumer semantically owns the <code>head</code> pointer of the queue</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Iter.html" title="heapless::spsc::Iter struct">Iter</a></div><div class="item-right docblock-short">An iterator over the items of a queue</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.IterMut.html" title="heapless::spsc::IterMut struct">IterMut</a></div><div class="item-right docblock-short">A mutable iterator over the items of a queue</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Producer.html" title="heapless::spsc::Producer struct">Producer</a></div><div class="item-right docblock-short">A queue “producer”; it can enqueue items into the queue
+NOTE the producer semantically owns the <code>tail</code> pointer of the queue</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Queue.html" title="heapless::spsc::Queue struct">Queue</a></div><div class="item-right docblock-short">A statically allocated single producer single consumer queue with a capacity of <code>N - 1</code> elements</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="heapless" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.0 (fc594f156 2023-01-24)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

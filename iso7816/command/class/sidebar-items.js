@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Chain",""],["Interindustry",""],["Range",""],["SecureMessaging",""]],"struct":[["Class",""],["InvalidClass",""]]});
+window.SIDEBAR_ITEMS = {"enum":[["Chain",""],["Interindustry",""],["Range",""],["SecureMessaging",""]],"struct":[["Class",""],["InvalidClass",""]]};

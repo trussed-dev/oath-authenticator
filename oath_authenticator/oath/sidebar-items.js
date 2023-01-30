@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["HMAC_MINIMUM_KEY_SIZE",""]],"enum":[["Algorithm",""],["Instruction",""],["Kind",""],["Properties",""],["Tag",""]],"fn":[["combine",""]]});
+window.SIDEBAR_ITEMS = {"constant":[["HMAC_MINIMUM_KEY_SIZE",""]],"enum":[["Algorithm",""],["Instruction",""],["Kind",""],["Properties",""],["Tag",""]],"fn":[["combine",""]]};

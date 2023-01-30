@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["calculate","The core calculation"]]});
+window.SIDEBAR_ITEMS = {"fn":[["calculate","The core calculation"]]};

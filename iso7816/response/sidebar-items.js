@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Response",""],["Status",""]]});
+window.SIDEBAR_ITEMS = {"enum":[["Response",""],["Status",""]]};

@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["YUBICO_OATH_AID",""],["YUBICO_RID",""]],"mod":[["authenticator",""],["calculate",""],["command",""],["oath",""],["state",""]]});
+window.SIDEBAR_ITEMS = {"constant":[["YUBICO_OATH_AID",""],["YUBICO_RID",""]],"mod":[["authenticator",""],["calculate",""],["command",""],["oath",""],["state",""]]};
