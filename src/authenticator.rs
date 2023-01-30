@@ -1,4 +1,5 @@
 use core::convert::TryInto;
+use core::marker::PhantomData;
 use core::time::Duration;
 
 use flexiber::{Encodable, EncodableHeapless};
@@ -10,6 +11,7 @@ use trussed::{
 
 use crate::command::VerifyCode;
 use crate::credential::Credential;
+use crate::encryption_key::EncryptionKeyGetter;
 use crate::oath::Kind;
 use crate::{
     command, ensure, oath,
@@ -18,9 +20,10 @@ use crate::{
 };
 
 /// The TOTP authenticator Trussed® app.
-pub struct Authenticator<T> {
-    state: State,
+pub struct Authenticator<T, K> {
+    state: State<K>,
     trussed: T,
+    encryption_key_getter: PhantomData<K>,
 }
 
 use crate::Result;
@@ -123,7 +126,7 @@ impl AnswerToSelect {
     }
 }
 
-impl<T> Authenticator<T>
+impl<T, K: EncryptionKeyGetter> Authenticator<T, K>
 where
     T: client::Client
         + client::HmacSha1
@@ -138,8 +141,9 @@ where
 
     pub fn new(trussed: T) -> Self {
         Self {
-            state: Default::default(),
+            state: State::<K>::new(),
             trussed,
+            encryption_key_getter: PhantomData,
         }
     }
 
@@ -993,14 +997,15 @@ where
     }
 }
 
-impl<T> iso7816::App for Authenticator<T> {
+impl<T, K> iso7816::App for Authenticator<T, K> {
     fn aid(&self) -> iso7816::Aid {
         iso7816::Aid::new(crate::YUBICO_OATH_AID)
     }
 }
 
 #[cfg(feature = "apdu-dispatch")]
-impl<T, const C: usize, const R: usize> apdu_dispatch::app::App<C, R> for Authenticator<T>
+impl<T, K: EncryptionKeyGetter, const C: usize, const R: usize> apdu_dispatch::app::App<C, R>
+    for Authenticator<T, K>
 where
     T: client::Client
         + client::HmacSha1

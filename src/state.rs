@@ -1,4 +1,5 @@
 use core::convert::TryInto;
+use core::marker::PhantomData;
 
 use iso7816::Status;
 use serde::de::DeserializeOwned;
@@ -6,6 +7,7 @@ use serde::Serialize;
 
 use crate::encrypted_container;
 use crate::encrypted_container::EncryptedDataContainer;
+use crate::encryption_key::EncryptionKeyGetter;
 use trussed::types::Message;
 use trussed::{
     cbor_deserialize, cbor_serialize_bytes, syscall, try_syscall,
@@ -13,7 +15,7 @@ use trussed::{
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct State {
+pub struct State<K> {
     // at startup, trussed is not callable yet.
     // moreover, when worst comes to worst, filesystems are not available
     // persistent: Option<Persistent>,
@@ -27,6 +29,8 @@ pub struct State {
     // Count read-only access to the persistence storage. Development only.
     #[cfg(feature = "devel-counters")]
     counter_read_only: u32,
+
+    _key_getter_marker: PhantomData<K>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -84,8 +88,19 @@ impl Persistent {
     }
 }
 
-impl State {
+impl<K: EncryptionKeyGetter> State<K> {
     const FILENAME: &'static str = "state.bin";
+
+    pub fn new() -> Self {
+        State {
+            runtime: Default::default(),
+            #[cfg(feature = "devel-counters")]
+            counter_read_write: 0,
+            #[cfg(feature = "devel-counters")]
+            counter_read_only: 0,
+            _key_getter_marker: Default::default(),
+        }
+    }
 
     pub fn try_write_file<T, O>(
         &mut self,
@@ -118,6 +133,9 @@ impl State {
     where
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
+        let encryption_key = K::get_encryption_key();
+        return Ok(encryption_key);
+
         // Try to read it
         let maybe_encryption_key = self.with_persistent(trussed, |_, state| state.encryption_key);
 

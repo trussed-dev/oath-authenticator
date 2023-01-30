@@ -5,7 +5,7 @@ use iso7816::Status;
 use trussed::client;
 pub const OTP_CCID: VendorCommand = VendorCommand::H70;
 
-impl<T> app::App for Authenticator<T>
+impl<T, K: EncryptionKeyGetter> app::App for Authenticator<T, K>
 where
     T: trussed::Client
         + client::HmacSha1
