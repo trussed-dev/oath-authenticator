@@ -408,6 +408,10 @@ where
         path
     }
 
+    fn user_present(&mut self) -> Result {
+        syscall!(self.trussed.confirm_user_present(15000)).result.map_err(|_| Status::ConditionsOfUseNotSatisfied)
+    }
+
     // 71 <- Tag::Name
     //    12
     //       74 6F 74 70 2E 64 61 6E 68 65 72 73 61 6D 2E 63 6F 6D
@@ -434,11 +438,21 @@ where
             None
         )).data;
 
+        let mut touch_result: Option<Result> = None;
+
         while let Some(serialized_credential) = maybe_credential {
-            // info_now!("serialized credential: {}", hex_str!(&serialized_credential));
+            // check if there's more
+            maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
 
             // deserialize
             let credential: Credential = postcard::from_bytes(&serialized_credential).unwrap();
+
+            if credential.touch_required {
+                let result = touch_result.get_or_insert_with(|| self.user_present());
+                if result.is_err() {
+                    continue;
+                }
+            }
 
             // add to response
             reply.push(0x71).unwrap();
@@ -461,9 +475,6 @@ where
                 reply.push(0x77).unwrap();
                 reply.push(0).unwrap();
             };
-
-            // check if there's more
-            maybe_credential = syscall!(self.trussed.read_dir_files_next()).data;
         }
 
         // ran to completion
@@ -478,6 +489,10 @@ where
         // info_now!("recv {:?}", &calculate);
 
         let mut credential = self.load_credential(&calculate.label).ok_or(Status::NotFound)?;
+
+        if credential.touch_required {
+            self.user_present()?
+        }
 
         let truncated_digest = match credential.kind {
             oath::Kind::Totp => crate::calculate::calculate(
