@@ -1,19 +1,10 @@
-#[cfg(feature = "ctaphid")]
 use crate::Authenticator;
-#[cfg(feature = "ctaphid")]
-use iso7816::Status;
-#[cfg(feature = "ctaphid")]
-use trussed::client;
-
-#[cfg(feature = "ctaphid")]
 use ctaphid_dispatch::app::{self, Command as HidCommand, Message};
-#[cfg(feature = "ctaphid")]
 use ctaphid_dispatch::command::VendorCommand;
-
-#[cfg(feature = "ctaphid")]
+use iso7816::Status;
+use trussed::client;
 pub const OTP_CCID: VendorCommand = VendorCommand::H70;
 
-#[cfg(feature = "ctaphid")]
 impl<T> app::App for Authenticator<T>
 where
     T: trussed::Client
