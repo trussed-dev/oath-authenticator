@@ -209,7 +209,7 @@ where
         }
         match command {
             Command::Select(select) => self.select(select, reply),
-            Command::ListCredentials => self.list_credentials(reply),
+            Command::ListCredentials => self.list_credentials(reply, None),
             Command::Register(register) => self.register(register),
             Command::Calculate(calculate) => self.calculate(calculate, reply),
             // Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all, reply),
@@ -343,7 +343,11 @@ where
     }
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
-    fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result {
+    fn list_credentials<const R: usize>(
+        &mut self,
+        reply: &mut Data<R>,
+        file_index: Option<usize>,
+    ) -> Result {
         // TODO check if this one conflicts with send remaining
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -355,14 +359,7 @@ where
         // 72 07 21
         //          79 75 62 69  63 6F
         // 90 00
-
-        let mut file_index = if let Some(CommandState::ListCredentials(s_file_index)) =
-            self.state.runtime.previously
-        {
-            s_file_index
-        } else {
-            0
-        };
+        let mut file_index = file_index.unwrap_or(0);
 
         let mut maybe_credential = {
             // To avoid creating additional buffer for the unfit data
@@ -426,9 +423,19 @@ where
     }
 
     fn send_remaining<const R: usize>(&mut self, reply: &mut Data<{ R }>) -> Result {
+        let file_index = if let Some(CommandState::ListCredentials(s_file_index)) =
+            self.state.runtime.previously
+        {
+            s_file_index
+        } else {
+            0
+        };
+
         match self.state.runtime.previously {
             None => Err(Status::ConditionsOfUseNotSatisfied),
-            Some(CommandState::ListCredentials(_)) => self.list_credentials(reply),
+            Some(CommandState::ListCredentials(_)) => {
+                self.list_credentials(reply, Some(file_index))
+            }
         }
     }
 
