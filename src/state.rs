@@ -119,13 +119,12 @@ impl State {
         T: trussed::Client + trussed::client::Chacha8Poly1305,
     {
         // Try to read it
-        let maybe_encryption_key =
-            self.persistent_read_only(trussed, |_, state| state.encryption_key);
+        let maybe_encryption_key = self.with_persistent(trussed, |_, state| state.encryption_key);
 
         // Generate encryption key
         let encryption_key = match maybe_encryption_key {
             Some(e) => e,
-            None => self.try_persistent_read_write(trussed, |trussed, state| {
+            None => self.try_with_persistent_mut(trussed, |trussed, state| {
                 state.get_or_generate_encryption_key(trussed)
             })?,
         };
@@ -165,7 +164,7 @@ impl State {
             .map_err(|e| e.into())
     }
 
-    pub fn try_persistent_read_write<T, X>(
+    pub fn try_with_persistent_mut<T, X>(
         &mut self,
         trussed: &mut T,
         f: impl FnOnce(&mut T, &mut Persistent) -> Result<X, trussed::error::Error>,
@@ -194,7 +193,7 @@ impl State {
         x
     }
 
-    pub fn persistent_read_only<T, X>(
+    pub fn with_persistent<T, X>(
         &mut self,
         trussed: &mut T,
         f: impl FnOnce(&mut T, &Persistent) -> X,
