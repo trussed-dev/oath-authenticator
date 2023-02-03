@@ -221,7 +221,8 @@ impl State {
         // NB: This is an attack vector. If the state can be corrupted, this clears the password.
         // Consider resetting the device in this situation
         try_syscall!(trussed.read_file(crate::LOCATION, PathBuf::from(Self::FILENAME)))
-            .map(|response| cbor_deserialize(&response.data).unwrap())
+            .map(|response| cbor_deserialize(&response.data))
+            .map(|r| r.unwrap())
             .unwrap_or_else(|_| {
                 // TODO check if this can fail
                 let salt: [u8; 8] = syscall!(trussed.random_bytes(8))
