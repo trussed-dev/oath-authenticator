@@ -1,11 +1,11 @@
 [package]
-name = "oath-authenticator"
+name = "vault"
 version = "0.6.0"
 authors = ["Nicolas Stalder <n@stalder.io>", "Szczepan Zalega <szczepan@nitrokey.com>"]
-repository = "https://github.com/trussed-dev/oath-authenticator"
+repository = "https://github.com/Nitrokey/nitrokey-vault"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
-description = "OATH authenticator Trussed app"
+description = "Password Vault and OATH authenticator Trussed app"
 
 [dependencies]
 apdu-dispatch = { version = "0.1",  optional = true }
