@@ -359,7 +359,7 @@ where
         // 72 07 21
         //          79 75 62 69  63 6F
         // 90 00
-        let mut file_index = file_index.unwrap_or(0);
+        let file_index = file_index.unwrap_or(0);
 
         let mut maybe_credential = {
             // To avoid creating additional buffer for the unfit data
@@ -373,18 +373,18 @@ where
             .data;
 
             // Rewind if needed, otherwise return first file's content
-            let file = match &self.state.runtime.previously {
-                Some(CommandState::ListCredentials(s)) => {
-                    info_now!("found continuation state: {:?}", s);
-                    for _ in 0..s - 1 {
+            let file = {
+                if file_index > 0 {
+                    for _ in 0..file_index - 1 {
                         try_syscall!(self.trussed.read_dir_files_next())
                             .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?;
                     }
                     try_syscall!(self.trussed.read_dir_files_next())
                         .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?
                         .data
+                } else {
+                    first_file
                 }
-                None => first_file,
             };
 
             let maybe_credential: Option<Credential> = match file {
@@ -394,6 +394,7 @@ where
             maybe_credential
         };
 
+        let mut file_index = file_index;
         while let Some(credential) = maybe_credential {
             // Try to serialize, abort if not succeeded
             let current_reply_bytes_count = reply.len();
