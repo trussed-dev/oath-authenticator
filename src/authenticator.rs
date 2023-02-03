@@ -259,7 +259,7 @@ where
         let credential: Credential = self.state.try_read_file(&mut self.trussed, filename).ok()?;
 
         if label != credential.label.as_slice() {
-            debug_now!("Loaded credential label is different than expected. Aborting.");
+            error_now!("Loaded credential label is different than expected. Aborting.");
             return None;
         }
 
@@ -599,7 +599,7 @@ where
                 if let Some(counter) = credential.counter {
                     self.calculate_hotp_digest_and_bump_counter(&credential, counter)?
                 } else {
-                    debug_now!("HOTP missing its counter");
+                    error_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
                 }
             }
