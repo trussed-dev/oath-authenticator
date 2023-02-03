@@ -1,8 +1,10 @@
+use crate::encryption_key::EncryptionKeyGetter;
 use crate::Authenticator;
 use ctaphid_dispatch::app::{self, Command as HidCommand, Message};
 use ctaphid_dispatch::command::VendorCommand;
 use iso7816::Status;
 use trussed::client;
+
 pub const OTP_CCID: VendorCommand = VendorCommand::H70;
 
 impl<T, K: EncryptionKeyGetter> app::App for Authenticator<T, K>

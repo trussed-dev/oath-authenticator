@@ -14,6 +14,7 @@ use fido_authenticator::TrussedRequirements;
 use usbd_ctaphid::constants::MESSAGE_SIZE;
 
 pub type FidoConfig = fido_authenticator::Config;
+use oath_authenticator::encryption_key::EncryptionKeyGetter;
 use trussed::types::KeyId;
 
 /// USP/IP based virtualization of the Nitrokey 3 / Solo2 device.
@@ -115,10 +116,22 @@ impl trussed::platform::UserInterface for UserInterface {
     }
 }
 
+struct KeyGetter {}
+
+impl EncryptionKeyGetter for KeyGetter {
+    fn get_encryption_key() -> KeyId {
+        todo!()
+    }
+
+    fn get_encryption_key_for_password(password: &[u8]) -> KeyId {
+        todo!()
+    }
+}
+
 struct Apps<C: Client + TrussedRequirements> {
     fido: fido_authenticator::Authenticator<fido_authenticator::Conforming, C>,
     admin: admin_app::App<C, Reboot>,
-    otp: oath_authenticator::Authenticator<C>,
+    otp: oath_authenticator::Authenticator<C, KeyGetter>,
 }
 
 impl<C: Client + TrussedRequirements + trussed::client::HmacSha1> trussed_usbip::Apps<C, ()>
