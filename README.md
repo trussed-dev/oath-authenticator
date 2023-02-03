@@ -85,18 +85,14 @@ See [CTAPHID](ctaphid.md) for the further documentation regarding the NLnet fund
 
 While most of the features needed for the daily use are implemented, there are still some tasks to do:
 
-- test remaining commands from the OATH protocol, e.g. SELECT, VALIDATE, CALCULATE ALL and SEND REMAINING;
+- test remaining commands from the OATH protocol, e.g. CALCULATE ALL;
 - stability improvements, e.g. handling errors found through fuzzing;
-- introducing UP confirmation for some operations, like credential registration or factory reset;
 - authorization for the credentials use or modification through device's global PIN - right now PIN handling is done by
   the application, while ideally should be offloaded to the upstream framework;
 - proper LED blinking for the Reverse HOTP feature - since the upstream framework does not handle any LED animations
   yet, the failing and successful cases can be distinguished only by the blinking length at the moment (10 seconds for
   the pass, 1000 for the failed case). There is no support for the animation priority in the upstream framework as well,
-  hence any other operation can overwrite the animation;
-- better error reporting over CTAPHID - right now only two status codes are reported - success and failure. It would be
-  nice for the production release to distinguish the actual case of the failed operation, like counter overflow, no
-  space available for the new credential, or timing out UP confirmation.
+  hence any other operation can overwrite the animation.
 
 Tasks and features still discussed to be done:
 
