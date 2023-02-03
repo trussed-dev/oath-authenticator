@@ -26,10 +26,10 @@ pub struct Authenticator<T> {
 use crate::Result;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct OathVersion {
-    pub major: u8,
-    pub minor: u8,
-    pub patch: u8,
+struct OathVersion {
+    major: u8,
+    minor: u8,
+    patch: u8,
 }
 
 impl Default for OathVersion {
@@ -62,7 +62,7 @@ impl flexiber::Encodable for OathVersion {
 
 // 61 0F 79 03 01 00 00 71 08 01 02 03 04 01 02 03 04 90 00
 #[derive(Clone, Copy, Encodable, Eq, PartialEq)]
-pub struct AnswerToSelect {
+struct AnswerToSelect {
     #[tlv(simple = "0x79")] // Tag::Version
     version: OathVersion,
     #[tlv(simple = "0x71")] // Tag::Name
@@ -78,7 +78,7 @@ pub struct AnswerToSelect {
 }
 
 #[derive(Clone, Copy, Encodable, Eq, PartialEq)]
-pub struct ChallengingAnswerToSelect {
+struct ChallengingAnswerToSelect {
     #[tlv(simple = "0x79")] // Tag::Version
     version: OathVersion,
     #[tlv(simple = "0x71")] // Tag::Name
@@ -101,7 +101,7 @@ pub struct ChallengingAnswerToSelect {
 impl AnswerToSelect {
     /// The salt is stable and used in modified form as "device ID" in ykman.
     /// It gets rotated on device reset.
-    pub fn new(salt: [u8; 8]) -> Self {
+    fn new(salt: [u8; 8]) -> Self {
         Self {
             version: Default::default(),
             salt,
@@ -112,7 +112,7 @@ impl AnswerToSelect {
     /// This challenge is only added when a password is set on the device.
     ///
     /// It is rotated each time SELECT is called.
-    pub fn with_challenge(self, challenge: [u8; 8]) -> ChallengingAnswerToSelect {
+    fn with_challenge(self, challenge: [u8; 8]) -> ChallengingAnswerToSelect {
         ChallengingAnswerToSelect {
             version: self.version,
             salt: self.salt,
@@ -150,7 +150,7 @@ where
     ) -> Result {
         let no_authorization_needed = self
             .state
-            .persistent(&mut self.trussed, |_, state| !state.password_set());
+            .with_persistent(&mut self.trussed, |_, state| !state.password_set());
 
         // TODO: abstract out this idea to make it usable for all the PIV security indicators
 
@@ -209,7 +209,7 @@ where
         }
         match command {
             Command::Select(select) => self.select(select, reply),
-            Command::ListCredentials => self.list_credentials(reply),
+            Command::ListCredentials => self.list_credentials(reply, None),
             Command::Register(register) => self.register(register),
             Command::Calculate(calculate) => self.calculate(calculate, reply),
             // Command::CalculateAll(calculate_all) => self.calculate_all(calculate_all, reply),
@@ -219,11 +219,12 @@ where
             Command::SetPassword(set_password) => self.set_password(set_password),
             Command::ClearPassword => self.clear_password(),
             Command::VerifyCode(verify_code) => self.verify_code(verify_code, reply),
+            Command::SendRemaining => self.send_remaining(reply),
             _ => Err(Status::ConditionsOfUseNotSatisfied),
         }
     }
 
-    pub fn select<const R: usize>(
+    fn select<const R: usize>(
         &mut self,
         _select: command::Select<'_>,
         reply: &mut Data<R>,
@@ -236,7 +237,7 @@ where
 
         let state = self
             .state
-            .persistent(&mut self.trussed, |_, state| state.clone());
+            .with_persistent(&mut self.trussed, |_, state| state.clone());
         let answer_to_select = AnswerToSelect::new(state.salt);
 
         let data: heapless::Vec<u8, 128> = if state.password_set() {
@@ -258,30 +259,28 @@ where
         let credential: Credential = self.state.try_read_file(&mut self.trussed, filename).ok()?;
 
         if label != credential.label.as_slice() {
-            debug_now!("Loaded credential label is different than expected. Aborting.");
+            error_now!("Loaded credential label is different than expected. Aborting.");
             return None;
         }
 
         Some(credential)
     }
 
-    pub fn reset(&mut self) -> Result {
+    fn reset(&mut self) -> Result {
         self.user_present()?;
 
         // Well. `ykman oath reset` does not check PIN.
         // If you lost your PIN, you wouldn't be able to reset otherwise.
 
         debug_now!(":: reset - delete all keys");
-        try_syscall!(self.trussed.delete_all(Location::Internal))
+        try_syscall!(self.trussed.delete_all(crate::LOCATION))
             .map_err(|_| Status::NotEnoughMemory)?;
 
         debug_now!(":: reset - delete all files");
         // make sure all other files are removed as well
         // NB: This deletes state.bin too, so it removes a possibly set password and encryption key.
-        try_syscall!(self
-            .trussed
-            .remove_dir_all(Location::Internal, PathBuf::new()))
-        .map_err(|_| Status::NotEnoughMemory)?;
+        try_syscall!(self.trussed.remove_dir_all(crate::LOCATION, PathBuf::new()))
+            .map_err(|_| Status::NotEnoughMemory)?;
 
         self.state.runtime.reset();
 
@@ -289,7 +288,7 @@ where
         Ok(())
     }
 
-    pub fn delete(&mut self, delete: command::Delete<'_>) -> Result {
+    fn delete(&mut self, delete: command::Delete<'_>) -> Result {
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -316,18 +315,40 @@ where
 
             let _filename = self.filename_for_label(label);
             let _deletion_result =
-                try_syscall!(self.trussed.remove_file(Location::Internal, _filename));
+                try_syscall!(self.trussed.remove_file(crate::LOCATION, _filename));
             debug_now!(
                 "Delete credential with filename {}, result: {:?}",
                 &self.filename_for_label(label),
                 _deletion_result
             );
         }
-        Ok(Default::default())
+        Ok(())
+    }
+
+    fn try_to_serialize_credential_for_list<const R: usize>(
+        credential: &Credential,
+        reply: &mut Data<R>,
+    ) -> core::result::Result<(), u8> {
+        reply.push(0x72)?;
+        reply.push((credential.label.len() + 1) as u8)?;
+        reply.push(oath::combine(credential.kind, credential.algorithm))?;
+        reply.extend_from_slice(&credential.label).map_err(|_| 0)?;
+        #[cfg(feature = "devel-ctaphid-bug")]
+        if reply.len() > 3072 {
+            // Finish early due to the usbd-ctaphid bug, which panics on bigger buffers than this
+            // FIXME Remove once fixed
+            return Err(1);
+        }
+        Ok(())
     }
 
     /// The YK5 can store a Grande Totale of 32 OATH credentials.
-    pub fn list_credentials<const R: usize>(&mut self, reply: &mut Data<R>) -> Result {
+    fn list_credentials<const R: usize>(
+        &mut self,
+        reply: &mut Data<R>,
+        file_index: Option<usize>,
+    ) -> Result {
+        // TODO check if this one conflicts with send remaining
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -338,41 +359,61 @@ where
         // 72 07 21
         //          79 75 62 69  63 6F
         // 90 00
+        let mut file_index = file_index.unwrap_or(0);
 
-        let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
-            Location::Internal,
-            Self::credential_directory(),
-            None
-        ))
-        .data;
-        let mut maybe_credential: Option<Credential> = match maybe_credential_enc {
-            None => None,
-            Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
+        let mut maybe_credential = {
+            // To avoid creating additional buffer for the unfit data
+            // we will rewind the state and restart from there accordingly
+            let first_file = try_syscall!(self.trussed.read_dir_files_first(
+                crate::LOCATION,
+                Self::credential_directory(),
+                None
+            ))
+            .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?
+            .data;
+
+            // Rewind if needed, otherwise return first file's content
+            let file = match &self.state.runtime.previously {
+                Some(CommandState::ListCredentials(s)) => {
+                    info_now!("found continuation state: {:?}", s);
+                    for _ in 0..s - 1 {
+                        try_syscall!(self.trussed.read_dir_files_next())
+                            .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?;
+                    }
+                    try_syscall!(self.trussed.read_dir_files_next())
+                        .map_err(|_| iso7816::Status::UnspecifiedNonpersistentExecutionError)?
+                        .data
+                }
+                None => first_file,
+            };
+
+            let maybe_credential: Option<Credential> = match file {
+                None => None,
+                Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
+            };
+            maybe_credential
         };
 
-        let mut file_index = 0;
         while let Some(credential) = maybe_credential {
+            // Try to serialize, abort if not succeeded
+            let current_reply_bytes_count = reply.len();
+            let res = Self::try_to_serialize_credential_for_list(&credential, reply);
+            if res.is_err() {
+                // Revert reply vector to the last good size, removing debris from the failed
+                // serialization
+                reply.truncate(current_reply_bytes_count);
+                return Err(Status::MoreAvailable(0xFF));
+            }
+
             // keep track, in case we need continuation
             file_index += 1;
             self.state.runtime.previously = Some(CommandState::ListCredentials(file_index));
-
-            // deserialize
-            reply.push(0x72).unwrap();
-            reply.push((credential.label.len() + 1) as u8).unwrap();
-            reply
-                .push(oath::combine(credential.kind, credential.algorithm))
-                .unwrap();
-            reply.extend_from_slice(&credential.label).unwrap();
 
             // check if there's more
             maybe_credential = match syscall!(self.trussed.read_dir_files_next()).data {
                 None => None,
                 Some(c) => self.state.decrypt_content(&mut self.trussed, c).ok(),
             };
-
-            if file_index % 8 == 0 {
-                // TODO: split response
-            }
         }
 
         // ran to completion
@@ -381,7 +422,24 @@ where
         Ok(())
     }
 
-    pub fn register(&mut self, register: command::Register<'_>) -> Result {
+    fn send_remaining<const R: usize>(&mut self, reply: &mut Data<{ R }>) -> Result {
+        let file_index = if let Some(CommandState::ListCredentials(s_file_index)) =
+            self.state.runtime.previously
+        {
+            s_file_index
+        } else {
+            0
+        };
+
+        match self.state.runtime.previously {
+            None => Err(Status::ConditionsOfUseNotSatisfied),
+            Some(CommandState::ListCredentials(_)) => {
+                self.list_credentials(reply, Some(file_index))
+            }
+        }
+    }
+
+    fn register(&mut self, register: command::Register<'_>) -> Result {
         self.user_present()?;
 
         if !self.state.runtime.client_authorized {
@@ -401,7 +459,7 @@ where
         let raw_key = register.credential.secret;
         let key_handle = try_syscall!(self
             .trussed
-            .unsafe_inject_shared_key(raw_key, Location::Internal))
+            .unsafe_inject_shared_key(raw_key, crate::LOCATION))
         .map_err(|_| Status::NotEnoughMemory)?
         .key;
         // info!("new key handle: {:?}", key_handle);
@@ -414,8 +472,21 @@ where
         let filename = self.filename_for_label(&credential.label);
 
         // 4. Serialize the credential (implicitly) and store it
-        self.state
-            .try_write_file(&mut self.trussed, filename, &credential)?;
+        let write_res = self
+            .state
+            .try_write_file(&mut self.trussed, filename, &credential);
+
+        if write_res.is_err() {
+            // TODO reuse delete() call
+            // 1. Try to delete the key from Trussed, ignore errors
+            try_syscall!(self.trussed.delete(credential.secret)).ok();
+            // 2. Try to delete the empty file, ignore errors
+            let filename = self.filename_for_label(&credential.label);
+            try_syscall!(self.trussed.remove_file(crate::LOCATION, filename)).ok();
+            // 3. Return the original error
+            write_res?
+        }
+
         Ok(())
     }
 
@@ -452,7 +523,7 @@ where
     //       06  <- digits
     //       5A D0 A7 CA <- dynamically truncated HMAC
     // 90 00
-    pub fn calculate_all<const R: usize>(
+    fn calculate_all<const R: usize>(
         &mut self,
         calculate_all: command::CalculateAll<'_>,
         reply: &mut Data<R>,
@@ -462,7 +533,7 @@ where
         }
 
         let maybe_credential_enc = syscall!(self.trussed.read_dir_files_first(
-            Location::Internal,
+            crate::LOCATION,
             Self::credential_directory(),
             None
         ))
@@ -506,7 +577,7 @@ where
         Ok(())
     }
 
-    pub fn calculate<const R: usize>(
+    fn calculate<const R: usize>(
         &mut self,
         calculate: command::Calculate<'_>,
         reply: &mut Data<R>,
@@ -535,7 +606,7 @@ where
                 if let Some(counter) = credential.counter {
                     self.calculate_hotp_digest_and_bump_counter(&credential, counter)?
                 } else {
-                    debug_now!("HOTP missing its counter");
+                    error_now!("HOTP missing its counter");
                     return Err(Status::UnspecifiedPersistentExecutionError);
                 }
             }
@@ -564,7 +635,7 @@ where
         Ok(())
     }
 
-    pub fn validate<const R: usize>(
+    fn validate<const R: usize>(
         &mut self,
         validate: command::Validate<'_>,
         reply: &mut Data<R>,
@@ -576,7 +647,7 @@ where
 
         if let Some(key) = self
             .state
-            .persistent(&mut self.trussed, |_, state| state.authorization_key)
+            .with_persistent(&mut self.trussed, |_, state| state.authorization_key)
         {
             debug_now!("key set: {:?}", key);
 
@@ -627,28 +698,32 @@ where
         //     90 00
         //
 
-        // pub response: &'l [u8; 20],
-        // pub challenge: &'l [u8; 8],
+        //  response: &'l [u8; 20],
+        //  challenge: &'l [u8; 8],
     }
 
-    pub fn clear_password(&mut self) -> Result {
+    fn clear_password(&mut self) -> Result {
         self.user_present()?;
 
         if !self.state.runtime.client_authorized {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         debug_now!("clearing password/key");
-        if let Some(key) = self.state.persistent(&mut self.trussed, |_, state| {
-            let existing_key = state.authorization_key;
-            state.authorization_key = None;
-            existing_key
-        }) {
+        if let Some(key) = self
+            .state
+            .try_with_persistent_mut(&mut self.trussed, |_, state| {
+                let existing_key = state.authorization_key;
+                state.authorization_key = None;
+                Ok(existing_key)
+            })
+            .map_err(|_| Status::NotEnoughMemory)?
+        {
             syscall!(self.trussed.delete(key));
         }
         Ok(())
     }
 
-    pub fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
+    fn set_password(&mut self, set_password: command::SetPassword<'_>) -> Result {
         self.user_present()?;
 
         if !self.state.runtime.client_authorized {
@@ -723,9 +798,10 @@ where
         }
 
         info_now!("injecting the key");
-        let tmp_key = syscall!(self
+        let tmp_key = try_syscall!(self
             .trussed
             .unsafe_inject_shared_key(key, Location::Volatile,))
+        .map_err(|_| Status::NotEnoughMemory)?
         .key;
 
         let verification = syscall!(self.trussed.sign_hmacsha1(tmp_key, challenge)).signature;
@@ -737,23 +813,24 @@ where
         }
 
         // all-right, we have a new password to set
-        let key = try_syscall!(self
-            .trussed
-            .unsafe_inject_shared_key(key, Location::Internal,))
-        .map_err(|_| Status::NotEnoughMemory)?
-        .key;
+        let key = try_syscall!(self.trussed.unsafe_inject_shared_key(key, crate::LOCATION,))
+            .map_err(|_| Status::NotEnoughMemory)?
+            .key;
 
         debug_now!("storing password/key");
-        self.state.persistent(&mut self.trussed, |_, state| {
-            state.authorization_key = Some(key)
-        });
+        self.state
+            .try_with_persistent_mut(&mut self.trussed, |_, state| {
+                state.authorization_key = Some(key);
+                Ok(())
+            })
+            .map_err(|_| Status::NotEnoughMemory)?;
 
-        // pub struct SetPassword<'l> {
-        //     pub kind: oath::Kind,
-        //     pub algorithm: oath::Algorithm,
-        //     pub key: &'l [u8],
-        //     pub challenge: &'l [u8],
-        //     pub response: &'l [u8],
+        //  struct SetPassword<'l> {
+        //      kind: oath::Kind,
+        //      algorithm: oath::Algorithm,
+        //      key: &'l [u8],
+        //      challenge: &'l [u8],
+        //      response: &'l [u8],
         // }
         Ok(())
     }
@@ -834,7 +911,7 @@ where
         counter: u32,
     ) -> iso7816::Result<u32> {
         let truncated_digest = self.calculate_hotp_digest_for_counter(credential, counter)?;
-        let truncated_code = u32::from_be_bytes(truncated_digest.try_into().unwrap());
+        let truncated_code = u32::from_be_bytes(truncated_digest);
         let code = (truncated_code & 0x7FFFFFFF)
             % 10u32
                 .checked_pow(credential.digits as _)
@@ -848,7 +925,7 @@ where
         credential: &Credential,
         counter: u32,
     ) -> iso7816::Result<[u8; 4]> {
-        let credential = self.bump_counter_for_cred(&credential, counter)?;
+        let credential = self.bump_counter_for_cred(credential, counter)?;
         let res = self.calculate_hotp_digest_for_counter(&credential, counter)?;
         Ok(res)
     }

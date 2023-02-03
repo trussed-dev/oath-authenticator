@@ -40,18 +40,25 @@ where
                 let ctap_to_iso7816_command =
                     iso7816::Command::<MAX_COMMAND_LENGTH>::try_from(input_data).map_err(|_e| {
                         response.clear();
-                        debug_now!("ISO conversion error: {:?}", _e);
+                        info_now!("ISO conversion error: {:?}", _e);
                         app::Error::InvalidLength
                     })?;
-                self.respond(&ctap_to_iso7816_command, response)
-                    .map_err(|e| {
-                        debug_now!("OTP command execution error: {:?}", e);
+                let res = self.respond(&ctap_to_iso7816_command, response);
+
+                match res {
+                    Ok(_) => return Ok(()),
+                    Err(Status::MoreAvailable(b)) => {
+                        response[0] = 0x61;
+                        response[1] = b;
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        info_now!("OTP command execution error: {:?}", e);
                         let arr: [u8; 2] = e.into();
                         response.clear();
                         response.extend(arr);
-                        app::Error::InvalidCommand
-                    })
-                    .ok();
+                    }
+                }
             }
             _ => {
                 return Err(app::Error::InvalidCommand);
