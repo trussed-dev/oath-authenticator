@@ -752,7 +752,7 @@ impl<'l> Credential<'l> {
 
 impl<T> iso7816::App for Authenticator<T> {
     fn aid(&self) -> iso7816::Aid {
-        iso7816::Aid::new(&crate::YUBICO_OATH_AID)
+        iso7816::Aid::new_truncatable(&crate::YUBICO_OATH_AID, crate::YUBICO_OATH_AID_TRUNCATED_LEN)
     }
 }
 
